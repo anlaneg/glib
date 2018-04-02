@@ -60,3 +60,7 @@ ChangeLog
 # Meson
 /meson-build/
 /subprojects/*/
+
+.cproject
+.project
+.settings/

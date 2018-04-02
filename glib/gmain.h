@@ -191,11 +191,11 @@ struct _GSource
   const GSourceFuncs *source_funcs;
   guint ref_count;
 
-  GMainContext *context;
+  GMainContext *context;//对应的context
 
   gint priority;
   guint flags;
-  guint source_id;
+  guint source_id;//id号，在插入时由“对应的context”自动生成
 
   GSList *poll_fds;
   

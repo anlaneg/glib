@@ -234,7 +234,7 @@ typedef struct _GSourceList GSourceList;
 struct _GSourceList
 {
   GSource *head, *tail;
-  gint priority;
+  gint priority;//此链的优先级
 };
 
 typedef struct _GMainWaiter GMainWaiter;
@@ -270,12 +270,19 @@ struct _GMainContext
 
   volatile gint ref_count;
 
+  //用来存放所有的source
   GHashTable *sources;              /* guint -> GSource */
 
   GPtrArray *pending_dispatches;
   gint timeout;			/* Timeout for current iteration */
 
-  guint next_id;
+  guint next_id;//用于生成source id
+  //用于连接source,与sources成员不同的是，其会按优先级进行分类(data是数据，存入相同优先级的source)
+  //样式:
+  //  Glist(p=1)--->Glist(p=2)-->Glist(p=3)
+  //       |             |             |
+  //       |             |             |
+  //     source        source        source
   GList *source_lists;
   gint in_check_or_prepare;
 
@@ -617,6 +624,7 @@ g_main_context_new (void)
   static gsize initialised;
   GMainContext *context;
 
+  //只容许调用一次
   if (g_once_init_enter (&initialised))
     {
 #ifdef G_MAIN_POLL_DEBUG
@@ -689,6 +697,7 @@ g_main_context_default (void)
 
   if (!default_main_context)
     {
+	  //构造默认context，并返回
       default_main_context = g_main_context_new ();
 
       TRACE (GLIB_MAIN_CONTEXT_DEFAULT (default_main_context));
@@ -1001,6 +1010,7 @@ g_source_iter_clear (GSourceIter *iter)
 
 /* Holds context's lock
  */
+//按优先级查找或创建GSourceList
 static GSourceList *
 find_source_list_for_priority (GMainContext *context,
 			       gint          priority,
@@ -1020,8 +1030,10 @@ find_source_list_for_priority (GMainContext *context,
       if (source_list->priority > priority)
 	{
 	  if (!create)
+		  //如果不需要创建，则直接返回NULL,未查找到
 	    return NULL;
 
+	  //需要创建的，则创建GSourceList,并将其添加到source_lists链上（位于iter之前）
 	  source_list = g_slice_new0 (GSourceList);
 	  source_list->priority = priority;
 	  context->source_lists = g_list_insert_before (context->source_lists,
@@ -1031,9 +1043,11 @@ find_source_list_for_priority (GMainContext *context,
 	}
     }
 
+  //遍历完链表后，没有找到，检查是否需要创建，如果不创建，则直接返回NULL
   if (!create)
     return NULL;
 
+  //创建并添加在最后面
   source_list = g_slice_new0 (GSourceList);
   source_list->priority = priority;
 
@@ -1051,6 +1065,7 @@ find_source_list_for_priority (GMainContext *context,
 
 /* Holds context's lock
  */
+//将source加入到context中
 static void
 source_add_to_context (GSource      *source,
 		       GMainContext *context)
@@ -1058,6 +1073,7 @@ source_add_to_context (GSource      *source,
   GSourceList *source_list;
   GSource *prev, *next;
 
+  //在context中找出与source优先级相同的sourcelist
   source_list = find_source_list_for_priority (context, source->priority, TRUE);
 
   if (source->priv->parent_source)
@@ -1065,15 +1081,18 @@ source_add_to_context (GSource      *source,
       g_assert (source_list->head != NULL);
 
       /* Put the source immediately before its parent */
+      //直接放在parent_source链上
       prev = source->priv->parent_source->prev;
       next = source->priv->parent_source;
     }
   else
     {
+	  //存放在source_list链上
       prev = source_list->tail;
       next = NULL;
     }
 
+  //将source加入到相应的链中
   source->next = next;
   if (next)
     next->prev = source;
@@ -1130,6 +1149,7 @@ g_source_attach_unlocked (GSource      *source,
    * reuse the source id of an existing source.
    */
   do
+	//生成一个未使用的id
     id = context->next_id++;
   while (id == 0 || g_hash_table_contains (context->sources, GUINT_TO_POINTER (id)));
 
@@ -1137,6 +1157,7 @@ g_source_attach_unlocked (GSource      *source,
   source->source_id = id;
   source->ref_count++;
 
+  //将source放入context的sources表中
   g_hash_table_insert (context->sources, GUINT_TO_POINTER (id), source);
 
   source_add_to_context (source, context);
@@ -1181,6 +1202,7 @@ g_source_attach_unlocked (GSource      *source,
  * Returns: the ID (greater than 0) for the source within the 
  *   #GMainContext. 
  **/
+//添加source到context中
 guint
 g_source_attach (GSource      *source,
 		 GMainContext *context)
@@ -3174,6 +3196,7 @@ g_main_dispatch (GMainContext *context)
 
           TRACE (GLIB_MAIN_BEFORE_DISPATCH (g_source_get_name (source), source,
                                             dispatch, callback, user_data));
+          //调用dispatch完成分发
           need_destroy = !(* dispatch) (source, callback, user_data);
           TRACE (GLIB_MAIN_AFTER_DISPATCH (g_source_get_name (source), source,
                                            dispatch, need_destroy));
@@ -3472,6 +3495,7 @@ g_main_context_prepare (GMainContext *context,
               context->in_check_or_prepare++;
               UNLOCK_CONTEXT (context);
 
+              //如果事件源注册了prepare，则调用prepare
               result = (* prepare) (source, &source_timeout);
               TRACE (GLIB_MAIN_AFTER_PREPARE (source, prepare, source_timeout));
 
@@ -3480,6 +3504,7 @@ g_main_context_prepare (GMainContext *context,
             }
           else
             {
+        	  //未注册prepare，则默认返回-1,超时时间int32_t的最大值
               source_timeout = -1;
               result = FALSE;
             }
@@ -3733,6 +3758,7 @@ g_main_context_check (GMainContext *context,
               context->in_check_or_prepare++;
               UNLOCK_CONTEXT (context);
 
+              //如果有check回调，调用check回调
               result = (* check) (source);
 
               TRACE (GLIB_MAIN_AFTER_CHECK (source, check, result));
@@ -5557,6 +5583,7 @@ g_idle_source_new (void)
 {
   GSource *source;
 
+  //定义 Idle 类型的事件源，指那些只有在主事件循环无其他事件源处理时才会被处理的事件源
   source = g_source_new (&g_idle_funcs, sizeof (GSource));
   g_source_set_priority (source, G_PRIORITY_DEFAULT_IDLE);
 
