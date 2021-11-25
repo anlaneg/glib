@@ -581,6 +581,7 @@ GPrintFunc      g_set_printerr_handler  (GPrintFunc      func);
 
 #else /* !G_DISABLE_CHECKS */
 
+//如果表达式expr为假，则退出当前函数
 #define g_return_if_fail(expr)		G_STMT_START{			\
      if G_LIKELY(expr) { } else       					\
        {								\
@@ -590,15 +591,19 @@ GPrintFunc      g_set_printerr_handler  (GPrintFunc      func);
 	 return;							\
        };				}G_STMT_END
 
+//如果表达式expr为假，则返回val，退出当前函数
 #define g_return_val_if_fail(expr,val)	G_STMT_START{			\
+           /*如果表达式为真，则不处理*/\
      if G_LIKELY(expr) { } else						\
        {								\
+         /*表达式为假，告警，并返回val*/\
 	 g_return_if_fail_warning (G_LOG_DOMAIN,			\
 		                   G_STRFUNC,				\
 		                   #expr);				\
 	 return (val);							\
        };				}G_STMT_END
 
+//退出当前函数，并告警
 #define g_return_if_reached()		G_STMT_START{			\
      g_log (G_LOG_DOMAIN,						\
 	    G_LOG_LEVEL_CRITICAL,					\
@@ -608,6 +613,7 @@ GPrintFunc      g_set_printerr_handler  (GPrintFunc      func);
 	    G_STRFUNC);							\
      return;				}G_STMT_END
 
+//以val返回，并退出当前函数，并告警
 #define g_return_val_if_reached(val)	G_STMT_START{			\
      g_log (G_LOG_DOMAIN,						\
 	    G_LOG_LEVEL_CRITICAL,					\

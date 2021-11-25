@@ -216,7 +216,7 @@
 struct _GHashTable
 {
   gint             size;
-  gint             mod;
+  gint             mod;//桶大小
   guint            mask;
   gint             nnodes;
   gint             noccupied;  /* nnodes + tombstones */
@@ -360,7 +360,7 @@ g_hash_table_set_shift_from_size (GHashTable *hash_table, gint size)
 static inline guint
 g_hash_table_lookup_node (GHashTable    *hash_table,
                           gconstpointer  key,
-                          guint         *hash_return)
+                          guint         *hash_return/*出参，key对应的hashcode*/)
 {
   guint node_index;
   guint node_hash;
@@ -376,10 +376,12 @@ g_hash_table_lookup_node (GHashTable    *hash_table,
    * table is empty prior to removing the last reference using g_hash_table_unref(). */
   g_assert (hash_table->ref_count > 0);
 
+  /*计算hashcode*/
   hash_value = hash_table->hash_func (key);
   if (G_UNLIKELY (!HASH_IS_REAL (hash_value)))
     hash_value = 2;
 
+  /*记录用于返回的hashcode*/
   *hash_return = hash_value;
 
   node_index = hash_value % hash_table->mod;
@@ -758,6 +760,7 @@ void
 g_hash_table_iter_init (GHashTableIter *iter,
                         GHashTable     *hash_table)
 {
+    //初始化hash_table的迭代器
   RealIter *ri = (RealIter *) iter;
 
   g_return_if_fail (iter != NULL);
@@ -789,6 +792,7 @@ g_hash_table_iter_next (GHashTableIter *iter,
                         gpointer       *key,
                         gpointer       *value)
 {
+    //取iter指向hashtable的下一个元素
   RealIter *ri = (RealIter *) iter;
   gint position;
 
@@ -1098,6 +1102,7 @@ g_hash_table_unref (GHashTable *hash_table)
 {
   g_return_if_fail (hash_table != NULL);
 
+  //减少hashtable的引用计数，如果其值已为0，则释放hashtable中数据
   if (g_atomic_int_dec_and_test (&hash_table->ref_count))
     {
       g_hash_table_remove_all_nodes (hash_table, TRUE, TRUE);
@@ -1150,6 +1155,7 @@ g_hash_table_lookup (GHashTable    *hash_table,
 
   g_return_val_if_fail (hash_table != NULL, NULL);
 
+  /*自hashtable中查找key*/
   node_index = g_hash_table_lookup_node (hash_table, key, &node_hash);
 
   return HASH_IS_REAL (hash_table->hashes[node_index])

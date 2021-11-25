@@ -717,6 +717,7 @@ void
   pthread_mutex_unlock (&g_atomic_lock);
 }
 
+//对atomic执行减1操作，如果atomic减之前为0，则返回true,否则返回false
 gboolean
 (g_atomic_int_dec_and_test) (volatile gint *atomic)
 {

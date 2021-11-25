@@ -92,6 +92,7 @@ static GMemVTable glib_mem_vtable = {
 gpointer
 g_malloc (gsize n_bytes)
 {
+  //通过malloc申请n_bytes个字节内存
   if (G_LIKELY (n_bytes))
     {
       gpointer mem;

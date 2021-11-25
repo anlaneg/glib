@@ -266,6 +266,7 @@ G_END_DECLS
   (g_atomic_int_xor ((guint *) (atomic), (val)))
 #define g_atomic_int_inc(atomic) \
   (g_atomic_int_inc ((gint *) (atomic)))
+//对atomic执行减1操作，如果其原值为0，返回True
 #define g_atomic_int_dec_and_test(atomic) \
   (g_atomic_int_dec_and_test ((gint *) (atomic)))
 

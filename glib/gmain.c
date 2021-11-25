@@ -918,6 +918,7 @@ g_source_new (GSourceFuncs *source_funcs,
 {
   GSource *source;
 
+  //参数检查
   g_return_val_if_fail (source_funcs != NULL, NULL);
   g_return_val_if_fail (struct_size >= sizeof (GSource), NULL);
   

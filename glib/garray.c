@@ -84,7 +84,7 @@
  *   g_array_free (garray, TRUE);
  * ]|
  */
-
+//最小的array大小
 #define MIN_ARRAY_SIZE  16
 
 typedef struct _GRealArray  GRealArray;
@@ -860,9 +860,9 @@ typedef struct _GRealPtrArray  GRealPtrArray;
  */
 struct _GRealPtrArray
 {
-  gpointer       *pdata;
-  guint           len;
-  guint           alloc;
+  gpointer       *pdata;//数组起始地址
+  guint           len;//数组长度
+  guint           alloc;//数组已申请的空间大小
   gint            ref_count;
   GDestroyNotify  element_free_func;
 };
@@ -1129,6 +1129,7 @@ static void
 g_ptr_array_maybe_expand (GRealPtrArray *array,
                           gint           len)
 {
+    //数组长度将满时，执行数组扩容
   if ((array->len + len) > array->alloc)
     {
       guint old_alloc = array->alloc;
@@ -1136,6 +1137,7 @@ g_ptr_array_maybe_expand (GRealPtrArray *array,
       array->alloc = MAX (array->alloc, MIN_ARRAY_SIZE);
       array->pdata = g_realloc (array->pdata, sizeof (gpointer) * array->alloc);
       if (G_UNLIKELY (g_mem_gc_friendly))
+          //清空新添加的空间
         for ( ; old_alloc < array->alloc; old_alloc++)
           array->pdata [old_alloc] = NULL;
     }
@@ -1396,6 +1398,7 @@ g_ptr_array_add (GPtrArray *array,
 {
   GRealPtrArray *rarray = (GRealPtrArray *)array;
 
+  //rarray必须不为空
   g_return_if_fail (rarray);
 
   g_ptr_array_maybe_expand (rarray, 1);

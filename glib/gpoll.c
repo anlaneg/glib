@@ -357,6 +357,7 @@ g_poll (GPollFD *fds,
   int ready;
   int maxfd = 0;
 
+  //读,写,异常 集合
   FD_ZERO (&rset);
   FD_ZERO (&wset);
   FD_ZERO (&xset);
@@ -364,12 +365,19 @@ g_poll (GPollFD *fds,
   for (f = fds; f < &fds[nfds]; ++f)
     if (f->fd >= 0)
       {
+        //加入读集合
 	if (f->events & G_IO_IN)
 	  FD_SET (f->fd, &rset);
+
+	//加入写集合
 	if (f->events & G_IO_OUT)
 	  FD_SET (f->fd, &wset);
+
+	//加异常集合
 	if (f->events & G_IO_PRI)
 	  FD_SET (f->fd, &xset);
+
+	//提取maxfd
 	if (f->fd > maxfd && (f->events & (G_IO_IN|G_IO_OUT|G_IO_PRI)))
 	  maxfd = f->fd;
       }
@@ -379,6 +387,8 @@ g_poll (GPollFD *fds,
 
   ready = select (maxfd + 1, &rset, &wset, &xset,
 		  timeout == -1 ? NULL : &tv);
+
+  //针对发生事件的f，打上r envent标记
   if (ready > 0)
     for (f = fds; f < &fds[nfds]; ++f)
       {

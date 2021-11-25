@@ -215,12 +215,14 @@ g_slist_append (GSList   *list,
   GSList *new_list;
   GSList *last;
 
+  /*申请gslist节点*/
   new_list = _g_slist_alloc ();
   new_list->data = data;
   new_list->next = NULL;
 
   if (list)
     {
+      /*如果list不为空，则取list最后一个节点，并将new_list串入，返回列表首位*/
       last = g_slist_last (list);
       /* g_assert (last != NULL); */
       last->next = new_list;
@@ -804,6 +806,7 @@ g_slist_index (GSList        *list,
 GSList*
 g_slist_last (GSList *list)
 {
+    /*取list最后一个节点*/
   if (list)
     {
       while (list->next)
