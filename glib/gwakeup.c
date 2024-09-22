@@ -135,6 +135,7 @@ struct _GWakeup
 GWakeup *
 g_wakeup_new (void)
 {
+    /*创建一个wakeup*/
   GError *error = NULL;
   GWakeup *wakeup;
 
@@ -143,6 +144,7 @@ g_wakeup_new (void)
   /* try eventfd first, if we think we can */
 #if defined (HAVE_EVENTFD)
 #ifndef TEST_EVENTFD_FALLBACK
+  /*创建eventfd*/
   wakeup->fds[0] = eventfd (0, EFD_CLOEXEC | EFD_NONBLOCK);
 #else
   wakeup->fds[0] = -1;
@@ -150,6 +152,7 @@ g_wakeup_new (void)
 
   if (wakeup->fds[0] != -1)
     {
+      /*使用eventfd*/
       wakeup->fds[1] = -1;
       return wakeup;
     }
@@ -157,9 +160,11 @@ g_wakeup_new (void)
   /* for any failure, try a pipe instead */
 #endif
 
+  /*创建pipe*/
   if (!g_unix_open_pipe (wakeup->fds, FD_CLOEXEC, &error))
     g_error ("Creating pipes for GWakeup: %s\n", error->message);
 
+  /*两端置为非阻塞*/
   if (!g_unix_set_fd_nonblocking (wakeup->fds[0], TRUE, &error) ||
       !g_unix_set_fd_nonblocking (wakeup->fds[1], TRUE, &error))
     g_error ("Set pipes non-blocking for GWakeup: %s\n", error->message);
@@ -204,6 +209,7 @@ g_wakeup_get_pollfd (GWakeup *wakeup,
 void
 g_wakeup_acknowledge (GWakeup *wakeup)
 {
+    /*连续读取，直到读取失败（非阻塞模式被打开），再返回*/
   char buffer[16];
 
   /* read until it is empty */
@@ -227,6 +233,7 @@ g_wakeup_acknowledge (GWakeup *wakeup)
 void
 g_wakeup_signal (GWakeup *wakeup)
 {
+    /*知会wakeup*/
   int res;
 
   if (wakeup->fds[1] == -1)
@@ -235,12 +242,14 @@ g_wakeup_signal (GWakeup *wakeup)
 
       /* eventfd() case. It requires a 64-bit counter increment value to be
        * written. */
+      /*此情况下采用了eventfd*/
       do
         res = write (wakeup->fds[0], &one, sizeof one);
       while (G_UNLIKELY (res == -1 && errno == EINTR));
     }
   else
     {
+      /*此情况下，采用了pipe*/
       guint8 one = 1;
 
       /* Non-eventfd() case. Only a single byte needs to be written, and it can

@@ -95,10 +95,10 @@ struct _GPollFD
   gint64	fd;
 #endif
 #else
-  gint		fd;
+  gint		fd;/*fd*/
 #endif
-  gushort 	events;
-  gushort 	revents;
+  gushort 	events;/*关注的事件*/
+  gushort 	revents;/*收到的事件*/
 };
 
 /**

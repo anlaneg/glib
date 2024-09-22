@@ -127,6 +127,7 @@ g_malloc0 (gsize n_bytes)
     {
       gpointer mem;
 
+      /*申请内存，并初始化为0*/
       mem = calloc (1, n_bytes);
       TRACE (GLIB_MEM_ALLOC((void*) mem, (unsigned int) n_bytes, 1, 0));
       if (mem)
@@ -162,6 +163,7 @@ g_realloc (gpointer mem,
 
   if (G_LIKELY (n_bytes))
     {
+      /*memory申请调整，保证n_bytes长度*/
       newmem = realloc (mem, n_bytes);
       TRACE (GLIB_MEM_REALLOC((void*) newmem, (void*)mem, (unsigned int) n_bytes, 0));
       if (newmem)
@@ -375,8 +377,8 @@ g_malloc0_n (gsize n_blocks,
  */
 gpointer
 g_realloc_n (gpointer mem,
-	     gsize    n_blocks,
-	     gsize    n_block_bytes)
+	     gsize    n_blocks/*元素数*/,
+	     gsize    n_block_bytes/*元素大小*/)
 {
   if (SIZE_OVERFLOWS (n_blocks, n_block_bytes))
     {

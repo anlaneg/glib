@@ -276,7 +276,7 @@ g_steal_pointer (gpointer pp)
  * 
  * Returns: a pointer to the allocated memory, cast to a pointer to @struct_type.
  */
-#define g_new0(struct_type, n_structs)			_G_NEW (struct_type, n_structs, malloc0)
+#define g_new0(struct_type, n_structs/*申请的元素数目*/)			_G_NEW (struct_type, n_structs, malloc0)
 /**
  * g_renew:
  * @struct_type: the type of the elements to allocate

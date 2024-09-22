@@ -286,9 +286,9 @@ struct _GMainContext
   GList *source_lists;
   gint in_check_or_prepare;
 
-  GPollRec *poll_records;
+  GPollRec *poll_records;/*用于记录需要poll的fd*/
   guint n_poll_records;
-  GPollFD *cached_poll_array;
+  GPollFD *cached_poll_array;/*用于记录poll的中间结果及结果*/
   guint cached_poll_array_size;
 
   GWakeup *wakeup;
@@ -948,6 +948,7 @@ g_source_iter_init (GSourceIter  *iter,
 		    GMainContext *context,
 		    gboolean      may_modify)
 {
+    /*枚举source,首次只指定context*/
   iter->context = context;
   iter->current_list = NULL;
   iter->source = NULL;
@@ -958,6 +959,7 @@ g_source_iter_init (GSourceIter  *iter,
 static gboolean
 g_source_iter_next (GSourceIter *iter, GSource **source)
 {
+    /*执行iter->context指定的context上source_lists遍历（按优先级进行遍历）*/
   GSource *next_source;
 
   if (iter->source)
@@ -970,10 +972,12 @@ g_source_iter_next (GSourceIter *iter, GSource **source)
       if (iter->current_list)
 	iter->current_list = iter->current_list->next;
       else
+          /*初次，使用context的source_lists*/
 	iter->current_list = iter->context->source_lists;
 
       if (iter->current_list)
 	{
+          /*取此list上的首个source*/
 	  GSourceList *source_list = iter->current_list->data;
 
 	  next_source = source_list->head;
@@ -1574,7 +1578,7 @@ g_source_callback_unref (gpointer cb_data)
 static void
 g_source_callback_get (gpointer     cb_data,
 		       GSource     *source, 
-		       GSourceFunc *func,
+		       GSourceFunc *func/*出参，回调函数*/,
 		       gpointer    *data)
 {
   GSourceCallback *callback = cb_data;
@@ -3184,6 +3188,7 @@ g_main_dispatch (GMainContext *context)
 	  source->flags |= G_HOOK_FLAG_IN_CALL;
 
 	  if (cb_funcs)
+	      /*获取回调函数及回调函数参数*/
 	    cb_funcs->get (cb_data, source, &callback, &user_data);
 
 	  UNLOCK_CONTEXT (context);
@@ -3197,7 +3202,7 @@ g_main_dispatch (GMainContext *context)
 
           TRACE (GLIB_MAIN_BEFORE_DISPATCH (g_source_get_name (source), source,
                                             dispatch, callback, user_data));
-          //调用dispatch完成分发
+          //调用dispatch回调，完成分发
           need_destroy = !(* dispatch) (source, callback, user_data);
           TRACE (GLIB_MAIN_AFTER_DISPATCH (g_source_get_name (source), source,
                                            dispatch, need_destroy));
@@ -3607,6 +3612,7 @@ g_main_context_query (GMainContext *context,
 
   TRACE (GLIB_MAIN_CONTEXT_BEFORE_QUERY (context, max_priority));
 
+  /*遍历需要poll的各个记录，收集并汇总到fds中*/
   n_poll = 0;
   lastpollrec = NULL;
   for (pollrec = context->poll_records; pollrec; pollrec = pollrec->next)
@@ -3631,7 +3637,7 @@ g_main_context_query (GMainContext *context,
           if (n_poll < n_fds)
             {
               fds[n_poll].fd = pollrec->fd->fd;
-              fds[n_poll].events = events;
+              fds[n_poll].events = events;/*关注的事件*/
               fds[n_poll].revents = 0;
             }
 
@@ -3738,6 +3744,7 @@ g_main_context_check (GMainContext *context,
       i++;
     }
 
+  /*遍历context上所有source*/
   g_source_iter_init (&iter, context, TRUE);
   while (g_source_iter_next (&iter, &source))
     {
@@ -3782,6 +3789,7 @@ g_main_context_check (GMainContext *context,
                 {
                   GPollFD *pollfd = tmp_list->data;
 
+                  /*此源关联的fd收到事件*/
                   if (pollfd->revents)
                     {
                       result = TRUE;
@@ -3814,6 +3822,7 @@ g_main_context_check (GMainContext *context,
 	    }
 	}
 
+      /*源上已ready将其加入到pending_dispatches中*/
       if (source->flags & G_SOURCE_READY)
 	{
 	  source->ref_count++;
@@ -3854,6 +3863,7 @@ g_main_context_dispatch (GMainContext *context)
 
   if (context->pending_dispatches->len > 0)
     {
+      /*存在未绝的dispatches,执行分发*/
       g_main_dispatch (context);
     }
 
@@ -3922,10 +3932,12 @@ g_main_context_iterate (GMainContext *context,
   if (!block)
     timeout = 0;
   
-  g_main_context_poll (context, timeout, max_priority, fds, nfds);
+  /*poll给定的一组fds,并返回poll的结果*/
+  g_main_context_poll (context, timeout/*超时时间*/, max_priority, fds/*入出参，各fd发生的事件*/, nfds);
   
   some_ready = g_main_context_check (context, max_priority, fds, nfds);
   
+  /*如果指明dispath,则进行fd event处理分发*/
   if (dispatch)
     g_main_context_dispatch (context);
   
@@ -3985,6 +3997,7 @@ g_main_context_iteration (GMainContext *context, gboolean may_block)
   gboolean retval;
 
   if (!context)
+      /*生成context*/
     context = g_main_context_default();
   
   LOCK_CONTEXT (context);
@@ -4121,6 +4134,7 @@ g_main_loop_run (GMainLoop *loop)
     }
 
   g_atomic_int_inc (&loop->ref_count);
+  /*如果loop is_running不为假，则一直获取context*/
   loop->is_running = TRUE;
   while (loop->is_running)
     g_main_context_iterate (loop->context, TRUE, TRUE, self);
@@ -4196,9 +4210,9 @@ g_main_loop_get_context (GMainLoop *loop)
 /* HOLDS: context's lock */
 static void
 g_main_context_poll (GMainContext *context,
-		     gint          timeout,
+		     gint          timeout/*超时时间*/,
 		     gint          priority,
-		     GPollFD      *fds,
+		     GPollFD      *fds/*出参，获得的各fd对应的事件*/,
 		     gint          n_fds)
 {
 #ifdef  G_MAIN_POLL_DEBUG
@@ -4225,9 +4239,11 @@ g_main_context_poll (GMainContext *context,
 
       LOCK_CONTEXT (context);
 
+      /*取对应的poll函数*/
       poll_func = context->poll_func;
 
       UNLOCK_CONTEXT (context);
+      /*调用poll*/
       ret = (*poll_func) (fds, n_fds, timeout);
       errsv = errno;
       if (ret < 0 && errsv != EINTR)
@@ -4331,6 +4347,7 @@ g_main_context_add_poll_unlocked (GMainContext *context,
   newrec->fd = fd;
   newrec->priority = priority;
 
+  /*poll记录添加，以fd进行排序*/
   prevrec = NULL;
   nextrec = context->poll_records;
   while (nextrec)
@@ -4357,6 +4374,7 @@ g_main_context_add_poll_unlocked (GMainContext *context,
   context->poll_changed = TRUE;
 
   /* Now wake up the main loop if it is waiting in the poll() */
+  /*唤配context->wakeup*/
   g_wakeup_signal (context->wakeup);
 }
 

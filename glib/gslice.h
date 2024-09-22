@@ -42,7 +42,9 @@ GLIB_AVAILABLE_IN_ALL
 void     g_slice_free_chain_with_offset (gsize         block_size,
 					 gpointer      mem_chain,
 					 gsize         next_offset);
+/*申请一段内存，不清零*/
 #define  g_slice_new(type)      ((type*) g_slice_alloc (sizeof (type)))
+/*申请一段内存，且对所得内存清零*/
 #define  g_slice_new0(type)     ((type*) g_slice_alloc0 (sizeof (type)))
 /* MemoryBlockType *
  *       g_slice_dup                    (MemoryBlockType,

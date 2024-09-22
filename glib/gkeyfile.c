@@ -512,7 +512,7 @@ struct _GKeyFile
 
   gchar **locales;
 
-  volatile gint ref_count;
+  volatile gint ref_count;/*引用计数*/
 };
 
 typedef struct _GKeyFileKeyValuePair GKeyFileKeyValuePair;
@@ -713,6 +713,7 @@ g_key_file_set_list_separator (GKeyFile *key_file,
 {
   g_return_if_fail (key_file != NULL);
 
+  /*设置列表分隔符*/
   key_file->list_separator = separator;
 }
 
@@ -809,6 +810,7 @@ g_key_file_load_from_fd (GKeyFile       *key_file,
   gchar read_buf[4096];
   gchar list_separator;
 
+  /*取文件info*/
   if (fstat (fd, &stat_buf) < 0)
     {
       int errsv = errno;
@@ -818,6 +820,7 @@ g_key_file_load_from_fd (GKeyFile       *key_file,
       return FALSE;
     }
 
+  /*必须为普通文件*/
   if (!S_ISREG (stat_buf.st_mode))
     {
       g_set_error_literal (error, G_KEY_FILE_ERROR,
@@ -836,6 +839,7 @@ g_key_file_load_from_fd (GKeyFile       *key_file,
     {
       int errsv;
 
+      /*读fd到buffer*/
       bytes_read = read (fd, read_buf, 4096);
       errsv = errno;
 
@@ -909,11 +913,13 @@ g_key_file_load_from_file (GKeyFile       *key_file,
   g_return_val_if_fail (key_file != NULL, FALSE);
   g_return_val_if_fail (file != NULL, FALSE);
 
+  /*打开指定文件*/
   fd = g_open (file, O_RDONLY, 0);
   errsv = errno;
 
   if (fd == -1)
     {
+	  /*文件不存在或者打开失败*/
       g_set_error_literal (error, G_FILE_ERROR,
                            g_file_error_from_errno (errsv),
                            g_strerror (errsv));
@@ -2490,6 +2496,7 @@ g_key_file_get_boolean (GKeyFile     *key_file,
   g_return_val_if_fail (group_name != NULL, FALSE);
   g_return_val_if_fail (key != NULL, FALSE);
 
+  /*取group_name,key对应的value*/
   value = g_key_file_get_value (key_file, group_name, key, &key_file_error);
 
   if (!value)
@@ -2708,6 +2715,7 @@ g_key_file_get_integer (GKeyFile     *key_file,
 
   key_file_error = NULL;
 
+  /*查grup/key获得value*/
   value = g_key_file_get_value (key_file, group_name, key, &key_file_error);
 
   if (key_file_error)
@@ -2716,6 +2724,7 @@ g_key_file_get_integer (GKeyFile     *key_file,
       return 0;
     }
 
+  /*将value解析为int型*/
   int_value = g_key_file_parse_value_as_integer (key_file, value,
 						 &key_file_error);
   g_free (value);
@@ -3719,7 +3728,7 @@ static gboolean
 g_key_file_has_key_full (GKeyFile     *key_file,
 			 const gchar  *group_name,
 			 const gchar  *key,
-			 gboolean     *has_key,
+			 gboolean     *has_key/*出参，指明group_name下是否存在指定key*/,
 			 GError      **error)
 {
   GKeyFileKeyValuePair *pair;
@@ -3729,6 +3738,7 @@ g_key_file_has_key_full (GKeyFile     *key_file,
   g_return_val_if_fail (group_name != NULL, FALSE);
   g_return_val_if_fail (key != NULL, FALSE);
 
+  /*检查此group是否存在*/
   group = g_key_file_lookup_group (key_file, group_name);
 
   if (!group)
@@ -3741,6 +3751,7 @@ g_key_file_has_key_full (GKeyFile     *key_file,
       return FALSE;
     }
 
+  /*在此group中检查key是否存在*/
   pair = g_key_file_lookup_key_value_pair (key_file, group, key);
 
   if (has_key)

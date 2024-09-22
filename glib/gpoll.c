@@ -346,6 +346,7 @@ typedef long fd_mask;
 #  endif /* !_IBMR2 */
 #endif /* !NO_FD_SET */
 
+/*使用select实现poll*/
 gint
 g_poll (GPollFD *fds,
 	guint    nfds,

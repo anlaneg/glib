@@ -358,6 +358,7 @@ g_option_context_new (const gchar *parameter_string)
 {
   GOptionContext *context;
 
+  /*产生一个context对象，并初始化部分成员*/
   context = g_new0 (GOptionContext, 1);
 
   context->parameter_string = g_strdup (parameter_string);

@@ -209,24 +209,27 @@
 
 #define UNUSED_HASH_VALUE 0
 #define TOMBSTONE_HASH_VALUE 1
+/*node hash值是否为0*/
 #define HASH_IS_UNUSED(h_) ((h_) == UNUSED_HASH_VALUE)
 #define HASH_IS_TOMBSTONE(h_) ((h_) == TOMBSTONE_HASH_VALUE)
+/*检查hash是否>=2*/
 #define HASH_IS_REAL(h_) ((h_) >= 2)
 
 struct _GHashTable
 {
-  gint             size;
+  gint             size;/*table的大小*/
   gint             mod;//桶大小
-  guint            mask;
+  guint            mask;/*table大小的掩码*/
   gint             nnodes;
   gint             noccupied;  /* nnodes + tombstones */
 
-  gpointer        *keys;
-  guint           *hashes;
+  gpointer        *keys;/*数组，用于存放hash key指针*/
+  guint           *hashes;/*数组，用于存入hash code*/
   gpointer        *values;
 
+  /*hash计算函数,通过此函数对key进行hashcode计算*/
   GHashFunc        hash_func;
-  GEqualFunc       key_equal_func;
+  GEqualFunc       key_equal_func;/*hash key比对函数，返回非0，则认为相等*/
   gint             ref_count;
 #ifndef G_DISABLE_ASSERT
   /*
@@ -236,8 +239,8 @@ struct _GHashTable
    */
   int              version;
 #endif
-  GDestroyNotify   key_destroy_func;
-  GDestroyNotify   value_destroy_func;
+  GDestroyNotify   key_destroy_func;/*hash key销毁函数*/
+  GDestroyNotify   value_destroy_func;/*hash value销毁函数*/
 };
 
 typedef struct
@@ -303,6 +306,7 @@ g_hash_table_set_shift (GHashTable *hash_table, gint shift)
   hash_table->size = 1 << shift;
   hash_table->mod  = prime_mod [shift];
 
+  /*按照shift的位数，产生一个有shift个‘1’的掩码*/
   for (i = 0; i < shift; i++)
     {
       mask <<= 1;
@@ -378,6 +382,7 @@ g_hash_table_lookup_node (GHashTable    *hash_table,
 
   /*计算hashcode*/
   hash_value = hash_table->hash_func (key);
+  /*当计算的hash code值<2时，将hash code更新为2*/
   if (G_UNLIKELY (!HASH_IS_REAL (hash_value)))
     hash_value = 2;
 
@@ -385,22 +390,25 @@ g_hash_table_lookup_node (GHashTable    *hash_table,
   *hash_return = hash_value;
 
   node_index = hash_value % hash_table->mod;
-  node_hash = hash_table->hashes[node_index];
+  node_hash = hash_table->hashes[node_index];/*依据node_index确认node_hash位置*/
 
   while (!HASH_IS_UNUSED (node_hash))
     {
+	  /*当前位置不可用，变更node_index,再检查*/
       /* We first check if our full hash values
        * are equal so we can avoid calling the full-blown
        * key equality function in most cases.
        */
       if (node_hash == hash_value)
         {
+    	  /*两者hash值相等，自key中取出node_key*/
           gpointer node_key = hash_table->keys[node_index];
 
           if (hash_table->key_equal_func)
             {
+        	  /*通过key来比对，检查两者是否相等*/
               if (hash_table->key_equal_func (node_key, key))
-                return node_index;
+                return node_index;/*相等，返回其对应的node_index*/
             }
           else if (node_key == key)
             {
@@ -409,6 +417,7 @@ g_hash_table_lookup_node (GHashTable    *hash_table,
         }
       else if (HASH_IS_TOMBSTONE (node_hash) && !have_tombstone)
         {
+    	  /*这是一种特殊情况。。。？*/
           first_tombstone = node_index;
           have_tombstone = TRUE;
         }
@@ -491,6 +500,7 @@ g_hash_table_remove_all_nodes (GHashTable *hash_table,
 
   /* If the hash table is already empty, there is nothing to be done. */
   if (hash_table->nnodes == 0)
+	  /*元素数为0，直接返回*/
     return;
 
   hash_table->nnodes = 0;
@@ -679,6 +689,7 @@ GHashTable *
 g_hash_table_new (GHashFunc  hash_func,
                   GEqualFunc key_equal_func)
 {
+	/*这种key,value不提供回调*/
   return g_hash_table_new_full (hash_func, key_equal_func, NULL, NULL);
 }
 
@@ -716,10 +727,12 @@ g_hash_table_new_full (GHashFunc      hash_func,
 {
   GHashTable *hash_table;
 
+  /*申请hash table内存*/
   hash_table = g_slice_new (GHashTable);
   g_hash_table_set_shift (hash_table, HASH_TABLE_MIN_SHIFT);
   hash_table->nnodes             = 0;
   hash_table->noccupied          = 0;
+  /*如果未提供hash_func,使用g_direct_hash*/
   hash_table->hash_func          = hash_func ? hash_func : g_direct_hash;
   hash_table->key_equal_func     = key_equal_func;
   hash_table->ref_count          = 1;
@@ -729,7 +742,8 @@ g_hash_table_new_full (GHashFunc      hash_func,
   hash_table->key_destroy_func   = key_destroy_func;
   hash_table->value_destroy_func = value_destroy_func;
   hash_table->keys               = g_new0 (gpointer, hash_table->size);
-  hash_table->values             = hash_table->keys;
+  hash_table->values             = hash_table->keys;/*这里为什么value要指向keys?*/
+  /*为什么需要hashes成员？*/
   hash_table->hashes             = g_new0 (guint, hash_table->size);
 
   return hash_table;
@@ -911,11 +925,11 @@ g_hash_table_iter_remove (GHashTableIter *iter)
  */
 static gboolean
 g_hash_table_insert_node (GHashTable *hash_table,
-                          guint       node_index,
-                          guint       key_hash,
+                          guint       node_index/*存放位置*/,
+                          guint       key_hash/*key对应的hashcode*/,
                           gpointer    new_key,
                           gpointer    new_value,
-                          gboolean    keep_new_key,
+                          gboolean    keep_new_key/*为真时，旧的key值会被释放*/,
                           gboolean    reusing_key)
 {
   gboolean already_exists;
@@ -923,8 +937,9 @@ g_hash_table_insert_node (GHashTable *hash_table,
   gpointer key_to_free = NULL;
   gpointer value_to_free = NULL;
 
+  /*取插入位置对应的old_hash*/
   old_hash = hash_table->hashes[node_index];
-  already_exists = HASH_IS_REAL (old_hash);
+  already_exists = HASH_IS_REAL (old_hash);/*插入位置是否存在元素*/
 
   /* Proceed in three steps.  First, deal with the key because it is the
    * most complicated.  Then consider if we need to split the table in
@@ -954,6 +969,7 @@ g_hash_table_insert_node (GHashTable *hash_table,
 
       if (keep_new_key)
         {
+    	  /*keep_new_key为真时，旧的key值会被在此处设置并释放*/
           key_to_free = hash_table->keys[node_index];
           hash_table->keys[node_index] = new_key;
         }
@@ -962,6 +978,7 @@ g_hash_table_insert_node (GHashTable *hash_table,
     }
   else
     {
+	  /*没有旧值，直接存放*/
       hash_table->hashes[node_index] = key_hash;
       hash_table->keys[node_index] = new_key;
     }
@@ -971,15 +988,16 @@ g_hash_table_insert_node (GHashTable *hash_table,
    * split the table.
    */
   if (G_UNLIKELY (hash_table->keys == hash_table->values && hash_table->keys[node_index] != new_value))
+	  /*如果key与value指向一致，但keys中存放的值与new_value不一致，则复制key到values中，此时key,value是不一样的*/
     hash_table->values = g_memdup (hash_table->keys, sizeof (gpointer) * hash_table->size);
 
   /* Step 3: Actually do the write */
-  hash_table->values[node_index] = new_value;
+  hash_table->values[node_index] = new_value;/*更新value*/
 
   /* Now, the bookkeeping... */
   if (!already_exists)
     {
-      hash_table->nnodes++;
+      hash_table->nnodes++;/*元素数增加*/
 
       if (HASH_IS_UNUSED (old_hash))
         {
@@ -995,7 +1013,7 @@ g_hash_table_insert_node (GHashTable *hash_table,
 
   if (already_exists)
     {
-      if (hash_table->key_destroy_func && !reusing_key)
+      if (hash_table->key_destroy_func && !reusing_key/*如果不复用key,则释放*/)
         (* hash_table->key_destroy_func) (key_to_free);
       if (hash_table->value_destroy_func)
         (* hash_table->value_destroy_func) (value_to_free);
@@ -1231,14 +1249,17 @@ g_hash_table_insert_internal (GHashTable *hash_table,
                               gpointer    value,
                               gboolean    keep_new_key)
 {
+	/*向hash table中添加(key,value)*/
   guint key_hash;
   guint node_index;
 
+  /*hash table为空时，直接返回false*/
   g_return_val_if_fail (hash_table != NULL, FALSE);
 
+  /*利用key查询，获得node_index*/
   node_index = g_hash_table_lookup_node (hash_table, key, &key_hash);
 
-  return g_hash_table_insert_node (hash_table, node_index, key_hash, key, value, keep_new_key, FALSE);
+  return g_hash_table_insert_node (hash_table, node_index/*存放位置*/, key_hash/*key对应的hash code*/, key, value, keep_new_key, FALSE);
 }
 
 /**
@@ -1264,9 +1285,10 @@ g_hash_table_insert_internal (GHashTable *hash_table,
  */
 gboolean
 g_hash_table_insert (GHashTable *hash_table,
-                     gpointer    key,
+                     gpointer    key/*key指针*/,
                      gpointer    value)
 {
+  /*向hashtable中添加key,value*/
   return g_hash_table_insert_internal (hash_table, key, value, FALSE);
 }
 
@@ -1920,6 +1942,7 @@ g_str_hash (gconstpointer v)
 guint
 g_direct_hash (gconstpointer v)
 {
+	/*将地址值直接转换为hash code*/
   return GPOINTER_TO_UINT (v);
 }
 

@@ -536,6 +536,7 @@ g_strdup_printf (const gchar *format,
   gchar *buffer;
   va_list args;
 
+  /*格式化并获得buffer*/
   va_start (args, format);
   buffer = g_strdup_vprintf (format, args);
   va_end (args);

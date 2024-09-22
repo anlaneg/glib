@@ -989,6 +989,7 @@ thread_memory_magazine2_free (ThreadMemory *tmem,
 gpointer
 g_slice_alloc (gsize mem_size)
 {
+	/*申请一个size为mem_size的内存块，此函数不对内存清零，清零需调用g_slice_alloc0*/
   ThreadMemory *tmem;
   gsize chunk_size;
   gpointer mem;
@@ -1048,6 +1049,7 @@ g_slice_alloc (gsize mem_size)
 gpointer
 g_slice_alloc0 (gsize mem_size)
 {
+  /*申请一块内存，并将内存初始化为零*/
   gpointer mem = g_slice_alloc (mem_size);
   if (mem)
     memset (mem, 0, mem_size);

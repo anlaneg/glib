@@ -804,6 +804,7 @@ guint
 }
 
 
+/*原子型指针获取*/
 gpointer
 (g_atomic_pointer_get) (const volatile void *atomic)
 {
