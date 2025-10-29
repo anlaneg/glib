@@ -1,6 +1,8 @@
 /*
  * Copyright 2015 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -40,7 +42,7 @@ static const GOptionEntry entries[] = {
   { "interactive", 'i', 0, G_OPTION_ARG_NONE, &interactive, N_("Prompt before overwrite"), NULL },
   { "backup", 'b', 0, G_OPTION_ARG_NONE, &backup, N_("Backup existing destination files"), NULL },
   { "no-copy-fallback", 'C', 0, G_OPTION_ARG_NONE, &no_copy_fallback, N_("Don’t use copy and delete fallback"), NULL },
-  { NULL }
+  G_OPTION_ENTRY_NULL
 };
 
 static gint64 start_time;
@@ -91,7 +93,7 @@ handle_move (int argc, char *argv[], gboolean do_help)
   g_set_prgname ("gio move");
 
   /* Translators: commandline placeholder */
-  param = g_strdup_printf ("%s... %s", _("SOURCE"), _("DESTINATION"));
+  param = g_strdup_printf ("%s… %s", _("SOURCE"), _("DESTINATION"));
   context = g_option_context_new (param);
   g_free (param);
   g_option_context_set_help_enabled (context, FALSE);
@@ -106,6 +108,7 @@ handle_move (int argc, char *argv[], gboolean do_help)
   if (do_help)
     {
       show_help (context, NULL);
+      g_option_context_free (context);
       return 0;
     }
 

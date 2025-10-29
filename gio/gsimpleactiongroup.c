@@ -1,6 +1,8 @@
 /*
  * Copyright © 2010 Codethink Limited
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -26,13 +28,13 @@
 #include "gaction.h"
 
 /**
- * SECTION:gsimpleactiongroup
- * @title: GSimpleActionGroup
- * @short_description: A simple GActionGroup implementation
- * @include: gio/gio.h
+ * GSimpleActionGroup:
  *
- * #GSimpleActionGroup is a hash table filled with #GAction objects,
- * implementing the #GActionGroup and #GActionMap interfaces.
+ * `GSimpleActionGroup` is a hash table filled with [iface@Gio.Action] objects,
+ * implementing the [iface@Gio.ActionGroup] and [iface@Gio.ActionMap]
+ * interfaces.
+ *
+ * Since: 2.28
  **/
 
 struct _GSimpleActionGroupPrivate

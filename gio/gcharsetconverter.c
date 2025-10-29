@@ -2,6 +2,8 @@
  *
  * Copyright (C) 2009 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -37,22 +39,15 @@ enum {
 };
 
 /**
- * SECTION:gcharsetconverter
- * @short_description: Convert between charsets
- * @include: gio/gio.h
+ * GCharsetConverter:
  *
- * #GCharsetConverter is an implementation of #GConverter based on
- * GIConv.
+ * `GCharsetConverter` is an implementation of [iface@Gio.Converter] based on
+ * [struct@GLib.IConv].
  */
 
 static void g_charset_converter_iface_init          (GConverterIface *iface);
 static void g_charset_converter_initable_iface_init (GInitableIface  *iface);
 
-/**
- * GCharsetConverter:
- *
- * Conversions between character sets.
- */
 struct _GCharsetConverter
 {
   GObject parent_instance;
@@ -157,27 +152,44 @@ g_charset_converter_class_init (GCharsetConverterClass *klass)
   gobject_class->get_property = g_charset_converter_get_property;
   gobject_class->set_property = g_charset_converter_set_property;
 
+  /**
+   * GCharsetConverter:to-charset:
+   *
+   * The character encoding to convert to.
+   *
+   * Since: 2.24
+   */
   g_object_class_install_property (gobject_class,
 				   PROP_TO_CHARSET,
-				   g_param_spec_string ("to-charset",
-							P_("To Charset"),
-							P_("The character encoding to convert to"),
+				   g_param_spec_string ("to-charset", NULL, NULL,
 							NULL,
 							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 							G_PARAM_STATIC_STRINGS));
+
+  /**
+   * GCharsetConverter:from-charset:
+   *
+   * The character encoding to convert from.
+   *
+   * Since: 2.24
+   */
   g_object_class_install_property (gobject_class,
 				   PROP_FROM_CHARSET,
-				   g_param_spec_string ("from-charset",
-							P_("From Charset"),
-							P_("The character encoding to convert from"),
+				   g_param_spec_string ("from-charset", NULL, NULL,
 							NULL,
 							G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 							G_PARAM_STATIC_STRINGS));
+
+  /**
+   * GCharsetConverter:use-fallback:
+   *
+   * Use fallback (of form `\<hexval>`) for invalid bytes.
+   *
+   * Since: 2.24
+   */
   g_object_class_install_property (gobject_class,
 				   PROP_USE_FALLBACK,
-				   g_param_spec_boolean ("use-fallback",
-							 P_("Fallback enabled"),
-							 P_("Use fallback (of form \\<hexval>) for invalid bytes"),
+				   g_param_spec_boolean ("use-fallback", NULL, NULL,
 							 FALSE,
 							 G_PARAM_READWRITE |
 							 G_PARAM_CONSTRUCT |

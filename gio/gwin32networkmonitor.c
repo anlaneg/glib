@@ -2,6 +2,8 @@
  *
  * Copyright 2014-2018 Jan-Michael Brummer <jan.brummer@tabos.org>
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -43,6 +45,7 @@
 #include "gnetworkmonitor.h"
 #include "gioerror.h"
 
+static GInitableIface *initable_parent_iface;
 static void g_win32_network_monitor_iface_init (GNetworkMonitorInterface *iface);
 static void g_win32_network_monitor_initable_iface_init (GInitableIface *iface);
 
@@ -75,24 +78,24 @@ g_win32_network_monitor_init (GWin32NetworkMonitor *win)
 }
 
 static gboolean
-win_network_monitor_get_ip_info (IP_ADDRESS_PREFIX  prefix,
-                                 GSocketFamily     *family,
-                                 const guint8     **dest,
-                                 gsize             *len)
+win_network_monitor_get_ip_info (const IP_ADDRESS_PREFIX  *prefix,
+                                 GSocketFamily            *family,
+                                 const guint8            **dest,
+                                 gsize                    *len)
 {
-  switch (prefix.Prefix.si_family)
+  switch (prefix->Prefix.si_family)
     {
       case AF_UNSPEC:
-        /* Fall-through: AF_UNSPEC deliveres both IPV4 and IPV6 infos, let`s stick with IPV4 here */
+        /* Fall-through: AF_UNSPEC delivers both IPV4 and IPV6 infos, let`s stick with IPV4 here */
       case AF_INET:
         *family = G_SOCKET_FAMILY_IPV4;
-        *dest = (guint8 *) &prefix.Prefix.Ipv4.sin_addr;
-        *len = prefix.PrefixLength;
+        *dest = (guint8 *) &(prefix->Prefix.Ipv4.sin_addr);
+        *len = prefix->PrefixLength;
         break;
       case AF_INET6:
         *family = G_SOCKET_FAMILY_IPV6;
-        *dest = (guint8 *) &prefix.Prefix.Ipv6.sin6_addr;
-        *len = prefix.PrefixLength;
+        *dest = (guint8 *) &(prefix->Prefix.Ipv6.sin6_addr);
+        *len = prefix->PrefixLength;
         break;
       default:
         return FALSE;
@@ -149,7 +152,7 @@ win_network_monitor_process_table (GWin32NetworkMonitor  *win,
 
       route = routes->Table + i;
 
-      if (!win_network_monitor_get_ip_info (route->DestinationPrefix, &family, &dest, &len))
+      if (!win_network_monitor_get_ip_info (&route->DestinationPrefix, &family, &dest, &len))
         continue;
 
       network = get_network_mask (family, dest, len);
@@ -215,13 +218,13 @@ win_network_monitor_invoke_route_changed (gpointer user_data)
   switch (route_data->type)
     {
       case MibDeleteInstance:
-        if (!win_network_monitor_get_ip_info (route_data->route->DestinationPrefix, &family, &dest, &len))
+        if (!win_network_monitor_get_ip_info (&route_data->route->DestinationPrefix, &family, &dest, &len))
           break;
 
         remove_network (route_data->win, family, dest, len);
         break;
       case MibAddInstance:
-        if (!win_network_monitor_get_ip_info (route_data->route->DestinationPrefix, &family, &dest, &len))
+        if (!win_network_monitor_get_ip_info (&route_data->route->DestinationPrefix, &family, &dest, &len))
             break;
 
         add_network (route_data->win, family, dest, len);
@@ -291,7 +294,7 @@ g_win32_network_monitor_initable_init (GInitable     *initable,
       return FALSE;
     }
 
-  return TRUE;
+  return initable_parent_iface->init (initable, cancellable, error);
 }
 
 static void
@@ -332,5 +335,7 @@ g_win32_network_monitor_iface_init (GNetworkMonitorInterface *monitor_iface)
 static void
 g_win32_network_monitor_initable_iface_init (GInitableIface *iface)
 {
+  initable_parent_iface = g_type_interface_peek_parent (iface);
+
   iface->init = g_win32_network_monitor_initable_init;
 }

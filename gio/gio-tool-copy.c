@@ -1,6 +1,8 @@
 /*
  * Copyright 2015 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -37,6 +39,8 @@ static gboolean interactive = FALSE;
 static gboolean preserve = FALSE;
 static gboolean backup = FALSE;
 static gboolean no_dereference = FALSE;
+static gboolean default_permissions = FALSE;
+static gboolean default_modified_time = FALSE;
 
 static const GOptionEntry entries[] = {
   { "no-target-directory", 'T', 0, G_OPTION_ARG_NONE, &no_target_directory, N_("No target directory"), NULL },
@@ -45,7 +49,9 @@ static const GOptionEntry entries[] = {
   { "preserve", 'p', 0, G_OPTION_ARG_NONE, &preserve, N_("Preserve all attributes"), NULL },
   { "backup", 'b', 0, G_OPTION_ARG_NONE, &backup, N_("Backup existing destination files"), NULL },
   { "no-dereference", 'P', 0, G_OPTION_ARG_NONE, &no_dereference, N_("Never follow symbolic links"), NULL },
-  { NULL }
+  { "default-permissions", 0, 0, G_OPTION_ARG_NONE, &default_permissions, N_("Use default permissions for the destination"), NULL },
+  { "default-modified-time", 0, 0, G_OPTION_ARG_NONE, &default_modified_time, N_("Use default file modification timestamps for the destination"), NULL },
+  G_OPTION_ENTRY_NULL
 };
 
 static gint64 start_time;
@@ -95,7 +101,7 @@ handle_copy (int argc, char *argv[], gboolean do_help)
   g_set_prgname ("gio copy");
 
   /* Translators: commandline placeholder */
-  param = g_strdup_printf ("%s... %s", _("SOURCE"), _("DESTINATION"));
+  param = g_strdup_printf ("%s… %s", _("SOURCE"), _("DESTINATION"));
   context = g_option_context_new (param);
   g_free (param);
   g_option_context_set_help_enabled (context, FALSE);
@@ -175,6 +181,10 @@ handle_copy (int argc, char *argv[], gboolean do_help)
         flags |= G_FILE_COPY_NOFOLLOW_SYMLINKS;
       if (preserve)
         flags |= G_FILE_COPY_ALL_METADATA;
+      if (default_permissions)
+        flags |= G_FILE_COPY_TARGET_DEFAULT_PERMS;
+      if (default_modified_time)
+        flags |= G_FILE_COPY_TARGET_DEFAULT_MODIFIED_TIME;
 
       error = NULL;
       start_time = g_get_monotonic_time ();

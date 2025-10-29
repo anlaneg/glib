@@ -2,6 +2,8 @@
  * 
  * Copyright (C) 2006-2007 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -24,14 +26,10 @@
 
 
 /*< private >
- * SECTION:gasynchelper
- * @short_description: Asynchronous Helper Functions
- * @include: gio/gio.h
- * @see_also: #GAsyncResult
+ * GAsyncHelper:
  * 
  * Provides helper functions for asynchronous operations.
- *
- **/
+ */
 
 #ifdef G_OS_WIN32
 gboolean
@@ -67,7 +65,7 @@ loop:
        * current thread and since we're doing only sync operations,
        * this is safe.... */
       /* CancelIoEx is only Vista+. Since we have only one overlap
-       * operaton on this thread, we can just use: */
+       * operation on this thread, we can just use: */
       result = CancelIo (hfile);
       g_warn_if_fail (result);
     }

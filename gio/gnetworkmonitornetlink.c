@@ -2,6 +2,8 @@
  *
  * Copyright 2011 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -21,6 +23,9 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#if defined(HAVE_SYS_SYSCTL_H) && defined(HAVE_SYSCTLBYNAME)
+#include <sys/sysctl.h>
+#endif
 
 #include "gnetworkmonitornetlink.h"
 #include "gcredentials.h"
@@ -36,9 +41,16 @@
 
 /* must come at the end to pick system includes from
  * gnetworkingprivate.h */
+#ifdef HAVE_LINUX_NETLINK_H
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#endif
+#if defined(HAVE_NETLINK_NETLINK_H) && defined(HAVE_NETLINK_NETLINK_ROUTE_H)
+#include <netlink/netlink.h>
+#include <netlink/netlink_route.h>
+#endif
 
+static GInitableIface *initable_parent_iface;
 static void g_network_monitor_netlink_iface_init (GNetworkMonitorInterface *iface);
 static void g_network_monitor_netlink_initable_iface_init (GInitableIface *iface);
 
@@ -51,9 +63,11 @@ struct _GNetworkMonitorNetlinkPrivate
   GPtrArray *dump_networks;
 };
 
-static gboolean read_netlink_messages (GSocket             *socket,
-                                       GIOCondition         condition,
-                                       gpointer             user_data);
+static gboolean read_netlink_messages (GNetworkMonitorNetlink  *nl,
+                                       GError                 **error);
+static gboolean read_netlink_messages_callback (GSocket             *socket,
+                                                GIOCondition         condition,
+                                                gpointer             user_data);
 static gboolean request_dump (GNetworkMonitorNetlink  *nl,
                               GError                 **error);
 
@@ -112,13 +126,14 @@ g_network_monitor_netlink_initable_init (GInitable     *initable,
     }
 
   nl->priv->sock = g_socket_new_from_fd (sockfd, error);
-  if (error)
+  if (!nl->priv->sock)
     {
       g_prefix_error (error, "%s", _("Could not create network monitor: "));
       (void) g_close (sockfd, NULL);
       return FALSE;
     }
 
+#ifdef SO_PASSCRED
   if (!g_socket_set_option (nl->priv->sock, SOL_SOCKET, SO_PASSCRED,
 			    TRUE, NULL))
     {
@@ -128,6 +143,7 @@ g_network_monitor_netlink_initable_init (GInitable     *initable,
                    g_strerror (errsv));
       return FALSE;
     }
+#endif
 
   /* Request the current state */
   if (!request_dump (nl, error))
@@ -138,18 +154,23 @@ g_network_monitor_netlink_initable_init (GInitable     *initable,
    */
   while (nl->priv->dump_networks)
     {
-      if (!read_netlink_messages (NULL, G_IO_IN, nl))
-        break;
+      GError *local_error = NULL;
+      if (!read_netlink_messages (nl, &local_error))
+        {
+          g_warning ("%s", local_error->message);
+          g_clear_error (&local_error);
+          break;
+        }
     }
 
   g_socket_set_blocking (nl->priv->sock, FALSE);
   nl->priv->context = g_main_context_ref_thread_default ();
   nl->priv->source = g_socket_create_source (nl->priv->sock, G_IO_IN, NULL);
   g_source_set_callback (nl->priv->source,
-                         (GSourceFunc) read_netlink_messages, nl, NULL);
+                         (GSourceFunc) read_netlink_messages_callback, nl, NULL);
   g_source_attach (nl->priv->source, nl->priv->context);
 
-  return TRUE;
+  return initable_parent_iface->init (initable, cancellable, error);
 }
 
 static gboolean
@@ -259,7 +280,7 @@ remove_network (GNetworkMonitorNetlink *nl,
   if (nl->priv->dump_networks)
     {
       GInetAddressMask **dump_networks = (GInetAddressMask **)nl->priv->dump_networks->pdata;
-      int i;
+      guint i;
 
       for (i = 0; i < nl->priv->dump_networks->len; i++)
         {
@@ -283,18 +304,45 @@ finish_dump (GNetworkMonitorNetlink *nl)
                                        nl->priv->dump_networks->len);
   g_ptr_array_free (nl->priv->dump_networks, TRUE);
   nl->priv->dump_networks = NULL;
+
+  /* FreeBSD features "jailing" functionality, which can be approximated to
+   * Linux namespaces. A jail may or may not share the host's network stack,
+   * which includes routing tables.
+   * When jail runs in non-vnet mode and has a shared stack with the host,
+   * the kernel prevents jailed processes from getting full view on a routing
+   * table. This makes GNetworkManager believe that we're offline and return
+   * FALSE for the "available" property.
+   * To workaround this problem, do the same thing as GNetworkMonitorBase -
+   * add a fake network of 0 length.
+   */
+#ifdef __FreeBSD__
+  gboolean is_jailed = FALSE;
+  gsize len = sizeof (is_jailed);
+
+  if (sysctlbyname ("security.jail.jailed", &is_jailed, &len, NULL, 0) != 0)
+    return;
+
+  if (!is_jailed)
+    return;
+
+  if (is_jailed && !g_network_monitor_get_network_available (G_NETWORK_MONITOR (nl)))
+    {
+      GInetAddressMask *network;
+      network = g_inet_address_mask_new_from_string ("0.0.0.0/0", NULL);
+      g_network_monitor_base_add_network (G_NETWORK_MONITOR_BASE (nl), network);
+      g_object_unref (network);
+    }
+#endif
 }
 
 static gboolean
-read_netlink_messages (GSocket      *socket,
-                       GIOCondition  condition,
-                       gpointer      user_data)
+read_netlink_messages (GNetworkMonitorNetlink  *nl,
+                       GError                 **error)
 {
-  GNetworkMonitorNetlink *nl = user_data;
   GInputVector iv;
   gssize len;
   gint flags;
-  GError *error = NULL;
+  GError *local_error = NULL;
   GSocketAddress *addr = NULL;
   struct nlmsghdr *msg;
   struct rtmsg *rtmsg;
@@ -302,41 +350,25 @@ read_netlink_messages (GSocket      *socket,
   struct sockaddr_nl source_sockaddr;
   gsize attrlen;
   guint8 *dest, *gateway, *oif;
-  gboolean retval = TRUE;
 
   iv.buffer = NULL;
   iv.size = 0;
 
   flags = MSG_PEEK | MSG_TRUNC;
   len = g_socket_receive_message (nl->priv->sock, NULL, &iv, 1,
-                                  NULL, NULL, &flags, NULL, &error);
+                                  NULL, NULL, &flags, NULL, &local_error);
   if (len < 0)
-    {
-      g_warning ("Error on netlink socket: %s", error->message);
-      g_clear_error (&error);
-      retval = FALSE;
-      goto done;
-    }
+    goto done;
 
   iv.buffer = g_malloc (len);
   iv.size = len;
   len = g_socket_receive_message (nl->priv->sock, &addr, &iv, 1,
-                                  NULL, NULL, NULL, NULL, &error);
+                                  NULL, NULL, NULL, NULL, &local_error);
   if (len < 0)
-    {
-      g_warning ("Error on netlink socket: %s", error->message);
-      g_clear_error (&error);
-      retval = FALSE;
-      goto done;
-    }
+    goto done;
 
-  if (!g_socket_address_to_native (addr, &source_sockaddr, sizeof (source_sockaddr), &error))
-    {
-      g_warning ("Error on netlink socket: %s", error->message);
-      g_clear_error (&error);
-      retval = FALSE;
-      goto done;
-    }
+  if (!g_socket_address_to_native (addr, &source_sockaddr, sizeof (source_sockaddr), &local_error))
+    goto done;
 
   /* If the sender port id is 0 (not fakeable) then the message is from the kernel */
   if (source_sockaddr.nl_pid != 0)
@@ -347,8 +379,10 @@ read_netlink_messages (GSocket      *socket,
     {
       if (!NLMSG_OK (msg, (size_t) len))
         {
-          g_warning ("netlink message was truncated; shouldn't happen...");
-          retval = FALSE;
+          g_set_error_literal (&local_error,
+                               G_IO_ERROR,
+                               G_IO_ERROR_PARTIAL_INPUT,
+                               "netlink message was truncated; shouldn't happen...");
           goto done;
         }
 
@@ -389,7 +423,7 @@ read_netlink_messages (GSocket      *socket,
               if (!nl->priv->dump_networks &&
                   rtmsg->rtm_family == AF_INET6 &&
                   rtmsg->rtm_dst_len != 0 &&
-                  UNALIGNED_IN6_IS_ADDR_MC_LINKLOCAL (dest))
+                  (dest && UNALIGNED_IN6_IS_ADDR_MC_LINKLOCAL (dest)))
                 continue;
 
               if (msg->nlmsg_type == RTM_NEWROUTE)
@@ -408,14 +442,20 @@ read_netlink_messages (GSocket      *socket,
           {
             struct nlmsgerr *e = NLMSG_DATA (msg);
 
-            g_warning ("netlink error: %s", g_strerror (-e->error));
+            g_set_error (&local_error,
+                         G_IO_ERROR,
+                         g_io_error_from_errno (-e->error),
+                         "netlink error: %s",
+                         g_strerror (-e->error));
           }
-          retval = FALSE;
           goto done;
 
         default:
-          g_warning ("unexpected netlink message %d", msg->nlmsg_type);
-          retval = FALSE;
+          g_set_error (&local_error,
+                       G_IO_ERROR,
+                       G_IO_ERROR_INVALID_DATA,
+                       "unexpected netlink message %d",
+                       msg->nlmsg_type);
           goto done;
         }
     }
@@ -424,21 +464,24 @@ read_netlink_messages (GSocket      *socket,
   g_free (iv.buffer);
   g_clear_object (&addr);
 
-  if (!retval && nl->priv->dump_networks)
+  if (local_error != NULL && nl->priv->dump_networks)
     finish_dump (nl);
-  return retval;
+
+  if (local_error != NULL)
+    {
+      g_propagate_prefixed_error (error, local_error, "Error on netlink socket: ");
+      return FALSE;
+    }
+  else
+    {
+      return TRUE;
+    }
 }
 
 static void
 g_network_monitor_netlink_finalize (GObject *object)
 {
   GNetworkMonitorNetlink *nl = G_NETWORK_MONITOR_NETLINK (object);
-
-  if (nl->priv->sock)
-    {
-      g_socket_close (nl->priv->sock, NULL);
-      g_object_unref (nl->priv->sock);
-    }
 
   if (nl->priv->source)
     {
@@ -452,10 +495,34 @@ g_network_monitor_netlink_finalize (GObject *object)
       g_source_unref (nl->priv->dump_source);
     }
 
+  if (nl->priv->sock)
+    {
+      g_socket_close (nl->priv->sock, NULL);
+      g_object_unref (nl->priv->sock);
+    }
+
   g_clear_pointer (&nl->priv->context, g_main_context_unref);
   g_clear_pointer (&nl->priv->dump_networks, g_ptr_array_unref);
 
   G_OBJECT_CLASS (g_network_monitor_netlink_parent_class)->finalize (object);
+}
+
+static gboolean
+read_netlink_messages_callback (GSocket      *socket,
+                                GIOCondition  condition,
+                                gpointer      user_data)
+{
+  GError *error = NULL;
+  GNetworkMonitorNetlink *nl = G_NETWORK_MONITOR_NETLINK (user_data);
+
+  if (!read_netlink_messages (nl, &error))
+    {
+      g_warning ("Error reading netlink message: %s", error->message);
+      g_clear_error (&error);
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 static void
@@ -474,5 +541,7 @@ g_network_monitor_netlink_iface_init (GNetworkMonitorInterface *monitor_iface)
 static void
 g_network_monitor_netlink_initable_iface_init (GInitableIface *iface)
 {
+  initable_parent_iface = g_type_interface_peek_parent (iface);
+
   iface->init = g_network_monitor_netlink_initable_init;
 }

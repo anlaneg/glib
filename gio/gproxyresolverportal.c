@@ -2,6 +2,8 @@
  *
  * Copyright 2016 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -52,7 +54,7 @@ ensure_resolver_proxy (GProxyResolverPortal *resolver)
     return FALSE;
 
   resolver->resolver = gxdp_proxy_resolver_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
-                                                                   G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+                                                                   G_DBUS_PROXY_FLAGS_NONE,
                                                                    "org.freedesktop.portal.Desktop",
                                                                    "/org/freedesktop/portal/desktop",
                                                                    NULL,

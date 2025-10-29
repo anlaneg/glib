@@ -2,6 +2,8 @@
  *
  * Copyright © 2009 Codethink Limited
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -13,32 +15,28 @@
  */
 
 /**
- * SECTION:gsocketcontrolmessage
- * @title: GSocketControlMessage
- * @short_description: A GSocket control message
- * @include: gio/gio.h
- * @see_also: #GSocket.
+ * GSocketControlMessage:
  *
- * A #GSocketControlMessage is a special-purpose utility message that
- * can be sent to or received from a #GSocket. These types of
- * messages are often called "ancillary data".
+ * A `GSocketControlMessage` is a special-purpose utility message that
+ * can be sent to or received from a [class@Gio.Socket]. These types of
+ * messages are often called ‘ancillary data’.
  *
  * The message can represent some sort of special instruction to or
  * information from the socket or can represent a special kind of
  * transfer to the peer (for example, sending a file descriptor over
  * a UNIX socket).
  *
- * These messages are sent with g_socket_send_message() and received
- * with g_socket_receive_message().
+ * These messages are sent with [method@Gio.Socket.send_message] and received
+ * with [method@Gio.Socket.receive_message].
  *
- * To extend the set of control message that can be sent, subclass this
- * class and override the get_size, get_level, get_type and serialize
+ * To extend the set of control messages that can be sent, subclass this
+ * class and override the `get_size`, `get_level`, `get_type` and `serialize`
  * methods.
  *
  * To extend the set of control messages that can be received, subclass
- * this class and implement the deserialize method. Also, make sure your
- * class is registered with the GType typesystem before calling
- * g_socket_receive_message() to read such a message.
+ * this class and implement the `deserialize` method. Also, make sure your
+ * class is registered with the [type@GObject.Type] type system before calling
+ * [method@Gio.Socket.receive_message] to read such a message.
  *
  * Since: 2.22
  */
@@ -162,7 +160,7 @@ g_socket_control_message_class_init (GSocketControlMessageClass *class)
  * If there is no implementation for this kind of control message, %NULL
  * will be returned.
  *
- * Returns: (transfer full): the deserialized message or %NULL
+ * Returns: (nullable) (transfer full): the deserialized message or %NULL
  *
  * Since: 2.22
  */
@@ -175,7 +173,7 @@ g_socket_control_message_deserialize (int      level,
   GSocketControlMessage *message;
   GType *message_types;
   guint n_message_types;
-  int i;
+  guint i;
 
   /* Ensure we know about the built in types */
 #ifndef G_OS_WIN32
@@ -204,7 +202,7 @@ g_socket_control_message_deserialize (int      level,
    * example, the control message may be be discarded if it is deemed
    * empty, see e.g.
    *
-   *  http://git.gnome.org/browse/glib/commit/?id=ec91ed00f14c70cca9749347b8ebc19d72d9885b
+   *  https://gitlab.gnome.org/GNOME/glib/commit/ec91ed00f14c70cca9749347b8ebc19d72d9885b
    *
    * Therefore, it's not appropriate to print a warning about not
    * being able to deserialize the message.

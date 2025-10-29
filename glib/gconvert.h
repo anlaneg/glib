@@ -1,6 +1,8 @@
 /* GLIB - Library of useful routines for C programming
  * Copyright (C) 1995-1997  Peter Mattis, Spencer Kimball and Josh MacDonald
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -164,13 +166,13 @@ gchar *g_filename_to_uri   (const gchar *filename,
 GLIB_AVAILABLE_IN_ALL
 gchar *g_filename_display_name (const gchar *filename) G_GNUC_MALLOC;
 GLIB_AVAILABLE_IN_ALL
-gboolean g_get_filename_charsets (const gchar ***charsets);
+gboolean g_get_filename_charsets (const gchar ***filename_charsets);
 
 GLIB_AVAILABLE_IN_ALL
 gchar *g_filename_display_basename (const gchar *filename) G_GNUC_MALLOC;
 
 GLIB_AVAILABLE_IN_ALL
-gchar **g_uri_list_extract_uris (const gchar *uri_list) G_GNUC_MALLOC;
+gchar **g_uri_list_extract_uris (const gchar *uri_list);
 
 G_END_DECLS
 

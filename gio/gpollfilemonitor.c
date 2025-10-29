@@ -2,6 +2,8 @@
  * 
  * Copyright (C) 2006-2007 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -87,10 +89,14 @@ calc_event_type (GFileInfo *last,
   if (last != NULL && new == NULL)
     return G_FILE_MONITOR_EVENT_DELETED;
 
-  if (g_strcmp0 (g_file_info_get_etag (last), g_file_info_get_etag (new)))
+  if (g_file_info_has_attribute (last, G_FILE_ATTRIBUTE_ETAG_VALUE) &&
+      g_file_info_has_attribute (new, G_FILE_ATTRIBUTE_ETAG_VALUE) &&
+      g_strcmp0 (g_file_info_get_etag (last), g_file_info_get_etag (new)) != 0)
     return G_FILE_MONITOR_EVENT_CHANGED;
   
-  if (g_file_info_get_size (last) != g_file_info_get_size (new))
+  if (g_file_info_has_attribute (last, G_FILE_ATTRIBUTE_STANDARD_SIZE) &&
+      g_file_info_has_attribute (new, G_FILE_ATTRIBUTE_STANDARD_SIZE) &&
+      g_file_info_get_size (last) != g_file_info_get_size (new))
     return G_FILE_MONITOR_EVENT_CHANGED;
 
   return -1;

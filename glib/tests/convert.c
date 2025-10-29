@@ -1,6 +1,8 @@
 /* GLIB - Library of useful routines for C programming
  * Copyright (C) 1995-1997  Peter Mattis, Spencer Kimball and Josh MacDonald
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -34,8 +36,8 @@
 static void
 test_iconv_state (void)
 {
-  gchar *in = "\xf4\xe5\xf8\xe5\xed";
-  gchar *expected = "\xd7\xa4\xd7\x95\xd7\xa8\xd7\x95\xd7\x9d";
+  const gchar *in = "\xf4\xe5\xf8\xe5\xed";
+  const gchar *expected = "\xd7\xa4\xd7\x95\xd7\xa8\xd7\x95\xd7\x9d";
   gchar *out;
   gsize bytes_read = 0;
   gsize bytes_written = 0;
@@ -107,7 +109,7 @@ test_byte_order (void)
 {
   gchar in_be[4] = { 0xfe, 0xff, 0x03, 0x93}; /* capital gamma */
   gchar in_le[4] = { 0xff, 0xfe, 0x93, 0x03};
-  gchar *expected = "\xce\x93";
+  const gchar *expected = "\xce\x93";
   gchar *out;
   gsize bytes_read = 0;
   gsize bytes_written = 0;
@@ -138,7 +140,7 @@ test_byte_order (void)
 
 static void
 check_utf8_to_ucs4 (const char     *utf8,
-		    glong           utf8_len,
+		    gsize           utf8_len,
 		    const gunichar *ucs4,
 		    glong           ucs4_len,
 		    glong           error_pos)
@@ -292,7 +294,7 @@ check_ucs4_to_utf8 (const gunichar *ucs4,
 
 static void
 check_utf8_to_utf16 (const char      *utf8,
-		     glong            utf8_len,
+		     gsize            utf8_len,
 		     const gunichar2 *utf16,
 		     glong            utf16_len,
 		     glong            error_pos)
@@ -588,7 +590,7 @@ check_utf16_to_ucs4 (const gunichar2 *utf16,
 static void
 test_unicode_conversions (void)
 {
-  char *utf8;
+  const char *utf8;
   gunichar ucs4[100];
   gunichar2 utf16[100];
 
@@ -707,9 +709,11 @@ test_convert_embedded_nul (void)
 static void
 test_locale_to_utf8_embedded_nul (void)
 {
-  g_test_trap_subprocess ("/conversion/locale-to-utf8/embedded-nul/subprocess/utf8", 0, 0);
+  g_test_trap_subprocess ("/conversion/locale-to-utf8/embedded-nul/subprocess/utf8",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
-  g_test_trap_subprocess ("/conversion/locale-to-utf8/embedded-nul/subprocess/iconv", 0, 0);
+  g_test_trap_subprocess ("/conversion/locale-to-utf8/embedded-nul/subprocess/iconv",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
 }
 
@@ -758,9 +762,11 @@ test_locale_to_utf8_embedded_nul_iconv (void)
 static void
 test_locale_from_utf8_embedded_nul (void)
 {
-  g_test_trap_subprocess ("/conversion/locale-from-utf8/embedded-nul/subprocess/utf8", 0, 0);
+  g_test_trap_subprocess ("/conversion/locale-from-utf8/embedded-nul/subprocess/utf8",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
-  g_test_trap_subprocess ("/conversion/locale-from-utf8/embedded-nul/subprocess/iconv", 0, 0);
+  g_test_trap_subprocess ("/conversion/locale-from-utf8/embedded-nul/subprocess/iconv",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
 }
 
@@ -811,9 +817,11 @@ test_locale_from_utf8_embedded_nul_iconv (void)
 static void
 test_filename_to_utf8_embedded_nul (void)
 {
-  g_test_trap_subprocess ("/conversion/filename-to-utf8/embedded-nul/subprocess/utf8", 0, 0);
+  g_test_trap_subprocess ("/conversion/filename-to-utf8/embedded-nul/subprocess/utf8",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
-  g_test_trap_subprocess ("/conversion/filename-to-utf8/embedded-nul/subprocess/iconv", 0, 0);
+  g_test_trap_subprocess ("/conversion/filename-to-utf8/embedded-nul/subprocess/iconv",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
 }
 
@@ -827,8 +835,11 @@ test_filename_to_utf8_embedded_nul_utf8 (void)
   gsize bytes_read;
   GError *error = NULL;
 
+#ifndef G_OS_WIN32
+  /* G_FILENAME_ENCODING has no effect on Windows for g_get_filename_charsets() */
   g_setenv ("G_FILENAME_ENCODING", "UTF-8", TRUE);
   g_assert_true (g_get_filename_charsets (NULL));
+#endif
 
   res = g_filename_to_utf8 ("ab\0c", 4, &bytes_read, NULL, &error);
 
@@ -848,8 +859,11 @@ test_filename_to_utf8_embedded_nul_iconv (void)
   gsize bytes_read;
   GError *error = NULL;
 
+#ifndef G_OS_WIN32
+  /* G_FILENAME_ENCODING has no effect on Windows for g_get_filename_charsets() */
   g_setenv ("G_FILENAME_ENCODING", "US-ASCII", TRUE);
   g_assert_false (g_get_filename_charsets (NULL));
+#endif
 
   res = g_filename_to_utf8 ("ab\0c", 4, &bytes_read, NULL, &error);
 
@@ -862,9 +876,11 @@ test_filename_to_utf8_embedded_nul_iconv (void)
 static void
 test_filename_from_utf8_embedded_nul (void)
 {
-  g_test_trap_subprocess ("/conversion/filename-from-utf8/embedded-nul/subprocess/utf8", 0, 0);
+  g_test_trap_subprocess ("/conversion/filename-from-utf8/embedded-nul/subprocess/utf8",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
-  g_test_trap_subprocess ("/conversion/filename-from-utf8/embedded-nul/subprocess/iconv", 0, 0);
+  g_test_trap_subprocess ("/conversion/filename-from-utf8/embedded-nul/subprocess/iconv",
+                          0, G_TEST_SUBPROCESS_DEFAULT);
   g_test_trap_assert_passed ();
 }
 
@@ -878,8 +894,11 @@ test_filename_from_utf8_embedded_nul_utf8 (void)
   gsize bytes_read;
   GError *error = NULL;
 
+#ifndef G_OS_WIN32
+  /* G_FILENAME_ENCODING has no effect on Windows for g_get_filename_charsets() */
   g_setenv ("G_FILENAME_ENCODING", "UTF-8", TRUE);
   g_assert_true (g_get_filename_charsets (NULL));
+#endif
 
   res = g_filename_from_utf8 ("ab\0c", 4, &bytes_read, NULL, &error);
 
@@ -899,8 +918,11 @@ test_filename_from_utf8_embedded_nul_iconv (void)
   gsize bytes_read;
   GError *error = NULL;
 
+#ifndef G_OS_WIN32
+  /* G_FILENAME_ENCODING has no effect on Windows for g_get_filename_charsets() */
   g_setenv ("G_FILENAME_ENCODING", "US-ASCII", TRUE);
   g_assert_false (g_get_filename_charsets (NULL));
+#endif
 
   res = g_filename_from_utf8 ("ab\0c", 4, &bytes_read, NULL, &error);
 
@@ -913,7 +935,7 @@ test_filename_from_utf8_embedded_nul_iconv (void)
 static void
 test_no_conv (void)
 {
-  gchar *in = "";
+  const gchar *in = "";
   gchar *out G_GNUC_UNUSED;
   gsize bytes_read = 0;
   gsize bytes_written = 0;
@@ -925,6 +947,45 @@ test_no_conv (void)
   /* error code is unreliable, since we mishandle errno there */
   g_assert (error && error->domain == G_CONVERT_ERROR);
   g_error_free (error);
+}
+
+static void
+test_filename_from_uri_helper (const gchar *uri,
+			       const gchar *expected_filename)
+{
+  gchar *filename;
+  gchar *expected_platform_filename;
+  GError *error = NULL;
+
+  expected_platform_filename = g_strdup (expected_filename);
+#ifdef G_OS_WIN32
+  for (gchar *p = expected_platform_filename; *p; p++)
+    {
+      if (*p == '/')
+	*p = '\\';
+    }
+#endif
+
+  filename = g_filename_from_uri (uri, NULL, &error);
+  g_assert_no_error (error);
+  g_assert_cmpstr (filename, ==, expected_platform_filename);
+  g_free (filename);
+  g_free (expected_platform_filename);
+}
+
+static void
+test_filename_from_uri_query_is_ignored (void)
+{
+  test_filename_from_uri_helper ("file:///tmp/foo?bar", "/tmp/foo");
+  test_filename_from_uri_helper ("file:///tmp/foo?bar#baz", "/tmp/foo");
+}
+
+static void
+test_filename_from_uri_fragment_is_ignored (void)
+{
+  test_filename_from_uri_helper ("file:///tmp/foo#bar", "/tmp/foo");
+  /* this doesn't have a query, only a bizarre anchor */
+  test_filename_from_uri_helper ("file:///tmp/foo#bar?baz", "/tmp/foo");
 }
 
 int
@@ -952,6 +1013,8 @@ main (int argc, char *argv[])
   g_test_add_func ("/conversion/filename-from-utf8/embedded-nul", test_filename_from_utf8_embedded_nul);
   g_test_add_func ("/conversion/filename-from-utf8/embedded-nul/subprocess/utf8", test_filename_from_utf8_embedded_nul_utf8);
   g_test_add_func ("/conversion/filename-from-utf8/embedded-nul/subprocess/iconv", test_filename_from_utf8_embedded_nul_iconv);
+  g_test_add_func ("/conversion/filename-from-uri/query-is-ignored", test_filename_from_uri_query_is_ignored);
+  g_test_add_func ("/conversion/filename-from-uri/fragment-is-ignored", test_filename_from_uri_fragment_is_ignored);
 
   return g_test_run ();
 }

@@ -5,6 +5,8 @@
    Copyright (C) 2006 John McCutchan
    Copyright (C) 2009 Codethink Limited
 
+   SPDX-License-Identifier: LGPL-2.1-or-later
+
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
    License as published by the Free Software Foundation; either
@@ -208,6 +210,7 @@ ip_watched_file_free (ip_watched_file_t *file)
   g_assert (file->subs == NULL);
   g_free (file->filename);
   g_free (file->path);
+  g_free (file);
 }
 
 static void

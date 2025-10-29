@@ -1,6 +1,8 @@
 /* GObject - GLib Type, Object, Parameter and Signal Library
  * Copyright (C) 2000 Red Hat, Inc.
  *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -24,39 +26,41 @@
 
 
 /**
- * SECTION:gtypemodule
- * @short_description: Type loading modules
- * @see_also: #GTypePlugin, #GModule
- * @title: GTypeModule
+ * GTypeModule:
+ * @name: the name of the module
  *
- * #GTypeModule provides a simple implementation of the #GTypePlugin
- * interface. The model of #GTypeModule is a dynamically loaded module
- * which implements some number of types and interface implementations.
+ * `GTypeModule` provides a simple implementation of the `GTypePlugin`
+ * interface.
+ *
+ * The model of `GTypeModule` is a dynamically loaded module which
+ * implements some number of types and interface implementations.
+ *
  * When the module is loaded, it registers its types and interfaces
- * using g_type_module_register_type() and g_type_module_add_interface().
+ * using [method@GObject.TypeModule.register_type] and
+ * [method@GObject.TypeModule.add_interface].
  * As long as any instances of these types and interface implementations
  * are in use, the module is kept loaded. When the types and interfaces
  * are gone, the module may be unloaded. If the types and interfaces
  * become used again, the module will be reloaded. Note that the last
- * unref cannot happen in module code, since that would lead to the
- * caller's code being unloaded before g_object_unref() returns to it.
+ * reference cannot be released from within the module code, since that
+ * would lead to the caller's code being unloaded before `g_object_unref()`
+ * returns to it.
  *
  * Keeping track of whether the module should be loaded or not is done by
  * using a use count - it starts at zero, and whenever it is greater than
  * zero, the module is loaded. The use count is maintained internally by
  * the type system, but also can be explicitly controlled by
- * g_type_module_use() and g_type_module_unuse(). Typically, when loading
- * a module for the first type, g_type_module_use() will be used to load
- * it so that it can initialize its types. At some later point, when the
- * module no longer needs to be loaded except for the type
- * implementations it contains, g_type_module_unuse() is called.
+ * [method@GObject.TypeModule.use] and [method@GObject.TypeModule.unuse].
+ * Typically, when loading a module for the first type, `g_type_module_use()`
+ * will be used to load it so that it can initialize its types. At some later
+ * point, when the module no longer needs to be loaded except for the type
+ * implementations it contains, `g_type_module_unuse()` is called.
  *
- * #GTypeModule does not actually provide any implementation of module
+ * `GTypeModule` does not actually provide any implementation of module
  * loading and unloading. To create a particular module type you must
- * derive from #GTypeModule and implement the load and unload functions
- * in #GTypeModuleClass.
+ * derive from `GTypeModule` and implement the load and unload functions
+ * in `GTypeModuleClass`.
  */
-
 
 typedef struct _ModuleTypeInfo ModuleTypeInfo;
 typedef struct _ModuleInterfaceInfo ModuleInterfaceInfo;
@@ -96,7 +100,7 @@ g_type_module_dispose (GObject *object)
   
   if (module->type_infos || module->interface_infos)
     {
-      g_warning (G_STRLOC ": unsolicitated invocation of g_object_run_dispose() on GTypeModule");
+      g_critical (G_STRLOC ": unsolicitated invocation of g_object_run_dispose() on GTypeModule");
 
       g_object_ref (object);
     }
@@ -110,6 +114,10 @@ g_type_module_finalize (GObject *object)
   GTypeModule *module = G_TYPE_MODULE (object);
 
   g_free (module->name);
+
+  /* in case a subclass does not chain-up to parent in dispose() */
+  g_assert (module->type_infos == NULL);
+  g_assert (module->interface_infos == NULL);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -151,6 +159,7 @@ g_type_module_get_type (void)
         sizeof (GTypeModule),
         0,              /* n_preallocs */
         NULL,           /* instance_init */
+        NULL,           /* value_table */
       };
       const GInterfaceInfo iface_info = {
         (GInterfaceInitFunc) g_type_module_iface_init,
@@ -253,9 +262,9 @@ g_type_module_use (GTypeModule *module)
 	  ModuleTypeInfo *type_info = tmp_list->data;
 	  if (!type_info->loaded)
 	    {
-	      g_warning ("plugin '%s' failed to register type '%s'\n",
-			 module->name ? module->name : "(unknown)",
-			 g_type_name (type_info->type));
+	      g_critical ("plugin '%s' failed to register type '%s'",
+			  module->name ? module->name : "(unknown)",
+			  g_type_name (type_info->type));
 	      module->use_count--;
 	      return FALSE;
 	    }
@@ -309,9 +318,8 @@ g_type_module_use_plugin (GTypePlugin *plugin)
 
   if (!g_type_module_use (module))
     {
-      g_warning ("Fatal error - Could not reload previously loaded plugin '%s'\n",
-		 module->name ? module->name : "(unknown)");
-      exit (1);
+      g_error ("Fatal error - Could not reload previously loaded plugin '%s'",
+		module->name ? module->name : "(unknown)");
     }
 }
 
@@ -400,7 +408,7 @@ g_type_module_register_type (GTypeModule     *module,
 
       if (old_plugin != G_TYPE_PLUGIN (module))
 	{
-	  g_warning ("Two different plugins tried to register '%s'.", type_name);
+	  g_critical ("Two different plugins tried to register '%s'.", type_name);
 	  return 0;
 	}
     }
@@ -413,10 +421,10 @@ g_type_module_register_type (GTypeModule     *module,
 	{
 	  const gchar *parent_type_name = g_type_name (parent_type);
 	  
-	  g_warning ("Type '%s' recreated with different parent type.\n"
-		     "(was '%s', now '%s')", type_name,
-		     g_type_name (module_type_info->parent_type),
-		     parent_type_name ? parent_type_name : "(unknown)");
+	  g_critical ("Type '%s' recreated with different parent type."
+		      "(was '%s', now '%s')", type_name,
+		      g_type_name (module_type_info->parent_type),
+		      parent_type_name ? parent_type_name : "(unknown)");
 	  return 0;
 	}
 
@@ -436,7 +444,7 @@ g_type_module_register_type (GTypeModule     *module,
   module_type_info->loaded = TRUE;
   module_type_info->info = *type_info;
   if (type_info->value_table)
-    module_type_info->info.value_table = g_memdup (type_info->value_table,
+    module_type_info->info.value_table = g_memdup2 (type_info->value_table,
 						   sizeof (GTypeValueTable));
 
   return module_type_info->type;
@@ -482,14 +490,14 @@ g_type_module_add_interface (GTypeModule          *module,
 
       if (!old_plugin)
 	{
-	  g_warning ("Interface '%s' for '%s' was previously registered statically or for a parent type.",
-		     g_type_name (interface_type), g_type_name (instance_type));
+	  g_critical ("Interface '%s' for '%s' was previously registered statically or for a parent type.",
+		      g_type_name (interface_type), g_type_name (instance_type));
 	  return;
 	}
       else if (old_plugin != G_TYPE_PLUGIN (module))
 	{
-	  g_warning ("Two different plugins tried to register interface '%s' for '%s'.",
-		     g_type_name (interface_type), g_type_name (instance_type));
+	  g_critical ("Two different plugins tried to register interface '%s' for '%s'.",
+		      g_type_name (interface_type), g_type_name (instance_type));
 	  return;
 	}
       
@@ -517,10 +525,9 @@ g_type_module_add_interface (GTypeModule          *module,
  * g_type_module_register_enum:
  * @module: (nullable): a #GTypeModule
  * @name: name for the type
- * @const_static_values: an array of #GEnumValue structs for the
- *                       possible enumeration values. The array is
- *                       terminated by a struct with all members being
- *                       0.
+ * @const_static_values: (array zero-terminated=1): an array of #GEnumValue
+ *  structs for the possible enumeration values. The array is terminated by a
+ *  struct with all members being 0.
  *
  * Looks up or registers an enumeration that is implemented with a particular
  * type plugin. If a type with name @type_name was previously registered,
@@ -559,10 +566,9 @@ g_type_module_register_enum (GTypeModule      *module,
  * g_type_module_register_flags:
  * @module: (nullable): a #GTypeModule
  * @name: name for the type
- * @const_static_values: an array of #GFlagsValue structs for the
- *                       possible flags values. The array is
- *                       terminated by a struct with all members being
- *                       0.
+ * @const_static_values: (array zero-terminated=1): an array of #GFlagsValue
+ *  structs for the possible flags values. The array is terminated by a struct
+ *  with all members being 0.
  *
  * Looks up or registers a flags type that is implemented with a particular
  * type plugin. If a type with name @type_name was previously registered,
