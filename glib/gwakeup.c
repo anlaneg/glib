@@ -135,7 +135,7 @@ struct _GWakeup
 GWakeup *
 g_wakeup_new (void)
 {
-    /*创建一个wakeup*/
+  /*创建一个wakeup*/
   GError *error = NULL;
   GWakeup *wakeup;
 
@@ -160,7 +160,7 @@ g_wakeup_new (void)
   /* for any failure, try a pipe instead */
 #endif
 
-  /*创建pipe*/
+  /*eventfd不支持，创建pipe方式*/
   if (!g_unix_open_pipe (wakeup->fds, FD_CLOEXEC, &error))
     g_error ("Creating pipes for GWakeup: %s\n", error->message);
 
@@ -188,6 +188,7 @@ void
 g_wakeup_get_pollfd (GWakeup *wakeup,
                      GPollFD *poll_fd)
 {
+	/*填充wakeup对应的pollfd*/
   poll_fd->fd = wakeup->fds[0];
   poll_fd->events = G_IO_IN;
 }
@@ -238,13 +239,14 @@ g_wakeup_signal (GWakeup *wakeup)
 
   if (wakeup->fds[1] == -1)
     {
+	  /*当前有两种实现eventfd与pipe,由于fds[1]未启用，故此情况下采用了eventfd*/
       guint64 one = 1;
 
       /* eventfd() case. It requires a 64-bit counter increment value to be
        * written. */
       /*此情况下采用了eventfd*/
       do
-        res = write (wakeup->fds[0], &one, sizeof one);
+        res = write (wakeup->fds[0], &one, sizeof one);/*通过写此fd，产生poll in事件*/
       while (G_UNLIKELY (res == -1 && errno == EINTR));
     }
   else
@@ -255,7 +257,7 @@ g_wakeup_signal (GWakeup *wakeup)
       /* Non-eventfd() case. Only a single byte needs to be written, and it can
        * have an arbitrary value. */
       do
-        res = write (wakeup->fds[1], &one, sizeof one);
+        res = write (wakeup->fds[1], &one, sizeof one);/*通过写此fd,产生poll in事件*/
       while (G_UNLIKELY (res == -1 && errno == EINTR));
     }
 }

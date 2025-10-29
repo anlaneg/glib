@@ -651,6 +651,7 @@ g_io_channel_unix_new (gint fd)
 gint
 g_io_channel_unix_get_fd (GIOChannel *channel)
 {
+	/*取得channel对应的fd*/
   GIOUnixChannel *unix_channel = (GIOUnixChannel *)channel;
   return unix_channel->fd;
 }

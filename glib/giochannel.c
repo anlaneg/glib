@@ -635,7 +635,7 @@ g_io_create_watch (GIOChannel   *channel,
  */
 guint 
 g_io_add_watch_full (GIOChannel    *channel,
-		     gint           priority,
+		     gint           priority/*优先级*/,
 		     GIOCondition   condition,
 		     GIOFunc        func,
 		     gpointer       user_data,

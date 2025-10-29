@@ -121,6 +121,7 @@ g_poll (GPollFD *fds,
 	guint    nfds,
 	gint     timeout)
 {
+	/*使用poll接口*/
   return poll ((struct pollfd *)fds, nfds, timeout);
 }
 

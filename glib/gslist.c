@@ -724,10 +724,11 @@ g_slist_find_custom (GSList        *list,
 {
   g_return_val_if_fail (func != NULL, list);
 
+  /*遍历list并针对每个list成员，触发func回调*/
   while (list)
     {
       if (! func (list->data, data))
-        return list;
+        return list;/*函数返回0，返回此list成员*/
       list = list->next;
     }
 

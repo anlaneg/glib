@@ -268,9 +268,9 @@ struct _GMainContext
   guint owner_count;
   GSList *waiters;
 
-  volatile gint ref_count;
+  volatile gint ref_count;/*引用计数*/
 
-  //用来存放所有的source
+  //用来存放所有的source（hashtable)
   GHashTable *sources;              /* guint -> GSource */
 
   GPtrArray *pending_dispatches;
@@ -286,19 +286,19 @@ struct _GMainContext
   GList *source_lists;
   gint in_check_or_prepare;
 
-  GPollRec *poll_records;/*用于记录需要poll的fd*/
-  guint n_poll_records;
+  GPollRec *poll_records;/*用于记录需要poll的fd(按fd从小到大排列）*/
+  guint n_poll_records;/*记录poll_records长度*/
   GPollFD *cached_poll_array;/*用于记录poll的中间结果及结果*/
   guint cached_poll_array_size;
 
   GWakeup *wakeup;
 
-  GPollFD wake_up_rec;
+  GPollFD wake_up_rec;/*记录wakeup对应的fd*/
 
 /* Flag indicating whether the set of fd's changed during a poll */
-  gboolean poll_changed;
+  gboolean poll_changed;/*标记poll记录是否有变更*/
 
-  GPollFunc poll_func;
+  GPollFunc poll_func;/*poll接口的实现函数，例如g_poll*/
 
   gint64   time;
   gboolean time_is_fresh;
@@ -350,7 +350,7 @@ struct _GPollRec
   GPollFD *fd;
   GPollRec *prev;
   GPollRec *next;
-  gint priority;
+  gint priority;/*优先级*/
 };
 
 struct _GSourcePrivate
@@ -661,9 +661,9 @@ g_main_context_new (void)
   
   context->time_is_fresh = FALSE;
   
-  context->wakeup = g_wakeup_new ();
-  g_wakeup_get_pollfd (context->wakeup, &context->wake_up_rec);
-  g_main_context_add_poll_unlocked (context, 0, &context->wake_up_rec);
+  context->wakeup = g_wakeup_new ();/*初始化wakeup*/
+  g_wakeup_get_pollfd (context->wakeup, &context->wake_up_rec);/*记录wakeup对应的fd record*/
+  g_main_context_add_poll_unlocked (context, 0, &context->wake_up_rec);/*将wakeup fd record加入到poll列表*/
 
   G_LOCK (main_context_list);
   main_context_list = g_slist_append (main_context_list, context);
@@ -693,7 +693,7 @@ g_main_context_default (void)
 {
   /* Slow, but safe */
   
-  G_LOCK (main_loop);
+  G_LOCK (main_loop);/*加锁*/
 
   if (!default_main_context)
     {
@@ -3599,10 +3599,10 @@ g_main_context_prepare (GMainContext *context,
  **/
 gint
 g_main_context_query (GMainContext *context,
-		      gint          max_priority,
-		      gint         *timeout,
-		      GPollFD      *fds,
-		      gint          n_fds)
+		      gint          max_priority/*大于此优先级的不收集*/,
+		      gint         *timeout/*出参，超时时间*/,
+		      GPollFD      *fds/*出参，记录满足要求的fd*/,
+		      gint          n_fds/*fds空间大小，即可填充的fd数目*/)
 {
   gint n_poll;
   GPollRec *pollrec, *lastpollrec;
@@ -3612,13 +3612,13 @@ g_main_context_query (GMainContext *context,
 
   TRACE (GLIB_MAIN_CONTEXT_BEFORE_QUERY (context, max_priority));
 
-  /*遍历需要poll的各个记录，收集并汇总到fds中*/
+  /*遍历poll records的各个记录，收集并汇总到fds中*/
   n_poll = 0;
   lastpollrec = NULL;
   for (pollrec = context->poll_records; pollrec; pollrec = pollrec->next)
     {
       if (pollrec->priority > max_priority)
-        continue;
+        continue;/*按优先级从小到大排列*/
 
       /* In direct contradiction to the Unix98 spec, IRIX runs into
        * difficulty if you pass in POLLERR, POLLHUP or POLLNVAL
@@ -3629,6 +3629,7 @@ g_main_context_query (GMainContext *context,
 
       if (lastpollrec && pollrec->fd->fd == lastpollrec->fd->fd)
         {
+    	  /*上次与本次record fd相等，仅合并事件*/
           if (n_poll - 1 < n_fds)
             fds[n_poll - 1].events |= events;
         }
@@ -3636,15 +3637,16 @@ g_main_context_query (GMainContext *context,
         {
           if (n_poll < n_fds)
             {
+        	  /*仅填充空间可容纳的内容*/
               fds[n_poll].fd = pollrec->fd->fd;
               fds[n_poll].events = events;/*关注的事件*/
               fds[n_poll].revents = 0;
             }
 
-          n_poll++;
+          n_poll++;/*增加填充数目；计算fd总数目（重复的不单独计数）*/
         }
 
-      lastpollrec = pollrec;
+      lastpollrec = pollrec;/*记录上一次遍历的record*/
     }
 
   context->poll_changed = FALSE;
@@ -3682,7 +3684,7 @@ g_main_context_query (GMainContext *context,
 gboolean
 g_main_context_check (GMainContext *context,
 		      gint          max_priority,
-		      GPollFD      *fds,
+		      GPollFD      *fds,/*poll结果*/
 		      gint          n_fds)
 {
   GSource *source;
@@ -3707,10 +3709,11 @@ g_main_context_check (GMainContext *context,
     {
       if (fds[i].fd == context->wake_up_rec.fd)
         {
-          if (fds[i].revents)
+    	  /*wakeup fd事件处理*/
+          if (fds[i].revents/*wakeup读事件*/)
             {
               TRACE (GLIB_MAIN_CONTEXT_WAKEUP_ACKNOWLEDGE (context));
-              g_wakeup_acknowledge (context->wakeup);
+              g_wakeup_acknowledge (context->wakeup);/*消费wakeup fd（可能有多次唤醒）方便下次收到通知*/
             }
           break;
         }
@@ -3724,21 +3727,23 @@ g_main_context_check (GMainContext *context,
       TRACE (GLIB_MAIN_CONTEXT_AFTER_CHECK (context, 0));
 
       UNLOCK_CONTEXT (context);
-      return FALSE;
+      return FALSE;/*poll关注的事件有变更，返回false*/
     }
 
   pollrec = context->poll_records;
   i = 0;
   while (pollrec && i < n_fds)
     {
+	  /*检查pollrec对应的fd是否在fds集合中*/
       while (pollrec && pollrec->fd->fd == fds[i].fd)
         {
           if (pollrec->priority <= max_priority)
             {
+        	  /*记录收到的事件*/
               pollrec->fd->revents =
                 fds[i].revents & (pollrec->fd->events | G_IO_ERR | G_IO_HUP | G_IO_NVAL);
             }
-          pollrec = pollrec->next;
+          pollrec = pollrec->next;/*尝试下一个pollrec*/
         }
 
       i++;
@@ -3922,6 +3927,7 @@ g_main_context_iterate (GMainContext *context,
   while ((nfds = g_main_context_query (context, max_priority, &timeout, fds, 
 				       allocated_nfds)) > allocated_nfds)
     {
+	  /*fds提供的空间不足以容纳所有记录，扩大空间，再查一次*/
       LOCK_CONTEXT (context);
       g_free (fds);
       context->cached_poll_array_size = allocated_nfds = nfds;
@@ -4025,6 +4031,7 @@ g_main_loop_new (GMainContext *context,
   GMainLoop *loop;
 
   if (!context)
+	/*生成默认的context*/
     context = g_main_context_default();
   
   g_main_context_ref (context);
@@ -4243,7 +4250,7 @@ g_main_context_poll (GMainContext *context,
       poll_func = context->poll_func;
 
       UNLOCK_CONTEXT (context);
-      /*调用poll*/
+      /*调用poll函数*/
       ret = (*poll_func) (fds, n_fds, timeout);
       errsv = errno;
       if (ret < 0 && errsv != EINTR)
@@ -4337,7 +4344,7 @@ g_main_context_add_poll (GMainContext *context,
 static void 
 g_main_context_add_poll_unlocked (GMainContext *context,
 				  gint          priority,
-				  GPollFD      *fd)
+				  GPollFD      *fd/*要新增的fd*/)
 {
   GPollRec *prevrec, *nextrec;
   GPollRec *newrec = g_slice_new (GPollRec);
@@ -4354,10 +4361,11 @@ g_main_context_add_poll_unlocked (GMainContext *context,
     {
       if (nextrec->fd->fd > fd->fd)
         break;
-      prevrec = nextrec;
-      nextrec = nextrec->next;
+      prevrec = nextrec;/*记录前一个节点*/
+      nextrec = nextrec->next;/*记录后一个节点*/
     }
 
+  /*将newrec加入到prevrec与nextrec之间*/
   if (prevrec)
     prevrec->next = newrec;
   else
@@ -4375,7 +4383,7 @@ g_main_context_add_poll_unlocked (GMainContext *context,
 
   /* Now wake up the main loop if it is waiting in the poll() */
   /*唤配context->wakeup*/
-  g_wakeup_signal (context->wakeup);
+  g_wakeup_signal (context->wakeup);/*唤醒poll*/
 }
 
 /**
@@ -4401,6 +4409,7 @@ g_main_context_remove_poll (GMainContext *context,
   UNLOCK_CONTEXT (context);
 }
 
+/*移除fd对应的poll record*/
 static void
 g_main_context_remove_poll_unlocked (GMainContext *context,
 				     GPollFD      *fd)
@@ -4521,7 +4530,7 @@ g_main_context_set_poll_func (GMainContext *context,
   LOCK_CONTEXT (context);
   
   if (func)
-    context->poll_func = func;
+    context->poll_func = func;/*设置poll函数*/
   else
     context->poll_func = g_poll;
 
