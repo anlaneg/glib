@@ -64,15 +64,15 @@ typedef struct _GIOUnixWatch GIOUnixWatch;
 
 struct _GIOUnixChannel
 {
-  GIOChannel channel;
-  gint fd;
+  GIOChannel channel;/*必须为第一个成员*/
+  gint fd;/*unix文件描述符*/
 };
 
 struct _GIOUnixWatch
 {
-  GSource       source;
-  GPollFD       pollfd;
-  GIOChannel   *channel;
+  GSource       source;/*必须为第一个成员*/
+  GPollFD       pollfd;/*关注的fd*/
+  GIOChannel   *channel;/*关联的GIOChannel*/
   GIOCondition  condition;
 };
 
@@ -118,7 +118,7 @@ GSourceFuncs g_io_watch_funcs = {
 };
 
 static GIOFuncs unix_channel_funcs = {
-  g_io_unix_read,
+  g_io_unix_read,/*buffer读取*/
   g_io_unix_write,
   g_io_unix_seek,
   g_io_unix_close,
@@ -194,7 +194,7 @@ g_io_unix_read (GIOChannel *channel,
     count = SSIZE_MAX;
 
  retry:
-  result = read (unix_channel->fd, buf, count);
+  result = read (unix_channel->fd, buf, count);/*读取buffer*/
 
   if (result < 0)
     {
@@ -301,7 +301,7 @@ g_io_unix_seek (GIOChannel *channel,
       return G_IO_STATUS_ERROR;
     }
   
-  result = lseek (unix_channel->fd, tmp_offset, whence);
+  result = lseek (unix_channel->fd, tmp_offset, whence);/*跳转*/
 
   if (result < 0)
     {
@@ -343,13 +343,12 @@ g_io_unix_free (GIOChannel *channel)
 }
 
 static GSource *
-g_io_unix_create_watch (GIOChannel   *channel,
-			GIOCondition  condition)
+g_io_unix_create_watch (GIOChannel   *channel/*要关注的fd*/,
+			GIOCondition  condition/*关注的事件*/)
 {
   GIOUnixChannel *unix_channel = (GIOUnixChannel *)channel;
   GSource *source;
   GIOUnixWatch *watch;
-
 
   source = g_source_new (&g_io_watch_funcs, sizeof (GIOUnixWatch));
   g_source_set_static_name (source, "GIOChannel (Unix)");
@@ -361,9 +360,9 @@ g_io_unix_create_watch (GIOChannel   *channel,
   watch->condition = condition;
 
   watch->pollfd.fd = unix_channel->fd;
-  watch->pollfd.events = condition;
+  watch->pollfd.events = condition;/*关注的事件*/
 
-  g_source_add_poll (source, &watch->pollfd);
+  g_source_add_poll (source, &watch->pollfd);/*watch关注的fd加入poll*/
 
   return source;
 }
@@ -616,6 +615,7 @@ g_io_channel_new_file (const gchar *filename,
 GIOChannel *
 g_io_channel_unix_new (gint fd)
 {
+  /*利用fd创建GIOChannel*/
   struct stat buffer;
   GIOUnixChannel *unix_channel = g_new (GIOUnixChannel, 1);
   GIOChannel *channel = (GIOChannel *)unix_channel;
@@ -656,7 +656,7 @@ g_io_channel_unix_new (gint fd)
 gint
 g_io_channel_unix_get_fd (GIOChannel *channel)
 {
-	/*取得channel对应的fd*/
+  /*取得channel对应的fd*/
   GIOUnixChannel *unix_channel = (GIOUnixChannel *)channel;
   return unix_channel->fd;
 }

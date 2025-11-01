@@ -100,7 +100,7 @@ typedef enum
 struct _GIOChannel
 {
   /*< private >*/
-  gint ref_count;
+  gint ref_count;/*引用计数*/
   GIOFuncs *funcs;
 
   gchar *encoding;

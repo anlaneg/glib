@@ -311,6 +311,7 @@ typedef struct _GSourceIter
   GSource *source;
 } GSourceIter;
 
+/*对context加锁*/
 #define LOCK_CONTEXT(context) g_mutex_lock (&context->mutex)
 #define UNLOCK_CONTEXT(context) g_mutex_unlock (&context->mutex)
 #define G_THREAD_SELF g_thread_self ()
@@ -1598,11 +1599,13 @@ g_source_add_poll (GSource *source,
   if (context)
     LOCK_CONTEXT (context);
   
+  /*添加fd*/
   source->poll_fds = g_slist_prepend (source->poll_fds, fd);
 
   if (context)
     {
       if (!SOURCE_BLOCKED (source))
+    	  /*将此source对应的fd加入到poll*/
 	g_main_context_add_poll_unlocked (context, source->priority, fd);
       UNLOCK_CONTEXT (context);
       g_main_context_unref (context);
@@ -4624,7 +4627,7 @@ g_main_loop_new (GMainContext *context,
   GMainLoop *loop;
 
   if (!context)
-	/*生成默认的context*/
+	/*未提供context,生成默认的context*/
     context = g_main_context_default();
   
   g_main_context_ref (context);

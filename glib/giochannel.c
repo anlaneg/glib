@@ -606,7 +606,7 @@ g_io_create_watch (GIOChannel   *channel,
 {
   g_return_val_if_fail (channel != NULL, NULL);
 
-  return channel->funcs->io_create_watch (channel, condition);
+  return channel->funcs->io_create_watch (channel, condition);/*创建watch并将channel添加进poll*/
 }
 
 /**
@@ -630,7 +630,7 @@ g_io_create_watch (GIOChannel   *channel,
 guint 
 g_io_add_watch_full (GIOChannel    *channel,
 		     gint           priority/*优先级*/,
-		     GIOCondition   condition,
+		     GIOCondition   condition/*关注的事件*/,
 		     GIOFunc        func,
 		     gpointer       user_data,
 		     GDestroyNotify notify)

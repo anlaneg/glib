@@ -279,7 +279,7 @@ struct _GSource
   guint flags; /* (atomic) */
   guint source_id;//id号，在插入时由“对应的context”自动生成
 
-  GSList *poll_fds;
+  GSList *poll_fds;/*串连GPollFD*/
   
   GSource *prev;
   GSource *next;
