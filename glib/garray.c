@@ -1144,6 +1144,7 @@ ptr_array_new (guint reserved_size,
 {
   GRealPtrArray *array;
 
+  /*创建RealPtrArray*/
   array = g_slice_new (GRealPtrArray);
 
   array->pdata = NULL;
@@ -2241,7 +2242,7 @@ g_ptr_array_add (GPtrArray *array,
 
   g_ptr_array_maybe_expand (rarray, 1u);
 
-  rarray->pdata[rarray->len++] = data;
+  rarray->pdata[rarray->len++] = data;/*存入元素，长度加1*/
 
   ptr_array_maybe_null_terminate (rarray);
 }

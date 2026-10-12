@@ -505,7 +505,7 @@ typedef struct _GKeyFileGroup GKeyFileGroup;
 
 struct _GKeyFile
 {
-  GList *groups;
+  GList *groups;/*所有group*/
   GHashTable *group_hash;
 
   GKeyFileGroup *start_group;

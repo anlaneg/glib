@@ -175,7 +175,7 @@ quark_strdup (const gchar *string)
 /* HOLDS: quark_global_lock */
 static inline GQuark
 quark_from_string (const gchar *string,
-                   gboolean     duplicate)
+                   gboolean     duplicate/*是否复制*/)
 {
   GQuark quark = 0;
 
@@ -183,7 +183,7 @@ quark_from_string (const gchar *string,
 
   if (!quark)
     {
-      quark = quark_new (duplicate ? quark_strdup (string) : (gchar *)string);
+      quark = quark_new (duplicate ? quark_strdup (string)/*复制*/ : (gchar *)string);
       TRACE(GLIB_QUARK_NEW(string, quark));
     }
 
@@ -302,7 +302,7 @@ quark_new (gchar *string)
 
   quark = quark_seq_id;
   g_atomic_pointer_set (&quarks[quark], string);
-  g_hash_table_insert (quark_ht, string, GUINT_TO_POINTER (quark));
+  g_hash_table_insert (quark_ht, string, GUINT_TO_POINTER (quark));/*加入quark_ht*/
   g_atomic_int_inc (&quark_seq_id);
 
   return quark;

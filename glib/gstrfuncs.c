@@ -1602,12 +1602,13 @@ g_ascii_strup (const gchar *str,
   if (len < 0)
     result = g_strdup (str);
   else
-    result = g_strndup (str, (gsize) len);
+    result = g_strndup (str, (gsize) len);/*按指定长度复制str*/
 
+  /*遍历字符串内容，如果为小写字每，则变更成大写字每*/
   for (s = result; *s; s++)
     *s = g_ascii_toupper (*s);
 
-  return result;
+  return result;/*返回转换后内容*/
 }
 
 /**
@@ -2042,12 +2043,12 @@ g_strdelimit (gchar       *string,
   g_return_val_if_fail (string != NULL, NULL);
 
   if (!delimiters)
-    delimiters = G_STR_DELIMITERS;
+    delimiters = G_STR_DELIMITERS;/*未提供，则使用默认隔字符*/
 
   for (c = string; *c; c++)
     {
       if (strchr (delimiters, *c))
-        *c = new_delim;
+        *c = new_delim;/*变更为新的隔字符，实现替换*/
     }
 
   return string;
@@ -2481,7 +2482,7 @@ g_strsplit (const gchar *string,
  **/
 gchar **
 g_strsplit_set (const gchar *string,
-                const gchar *delimiters,
+                const gchar *delimiters/*分隔符集合*/,
                 gint         max_tokens)
 {
   guint8 delim_table[256]; /* 1 = index is a separator; 0 otherwise */
@@ -2510,18 +2511,20 @@ g_strsplit_set (const gchar *string,
    * if that index is a separator. */
   memset (delim_table, FALSE, sizeof (delim_table));
   for (s = delimiters; *s != '\0'; ++s)
-    delim_table[*(guchar *)s] = TRUE;
+    delim_table[*(guchar *)s] = TRUE;/*构建分隔符映射表*/
 
   tokens = NULL;
   n_tokens = 0;
 
+  /*遍历字符串s*/
   s = current = string;
   while (*s != '\0')
     {
       if (delim_table[*(guchar *)s] && n_tokens + 1 < max_tokens)
         {
+    	  /*划分token*/
           token = g_strndup (current, s - current);
-          tokens = g_slist_prepend (tokens, token);
+          tokens = g_slist_prepend (tokens, token);/*将token记录为list*/
           ++n_tokens;
 
           current = s + 1;
@@ -2536,6 +2539,7 @@ g_strsplit_set (const gchar *string,
 
   result = g_new (gchar *, n_tokens + 1);
 
+  /*由list转token列表*/
   result[n_tokens] = NULL;
   for (list = tokens; list != NULL; list = list->next)
     result[--n_tokens] = list->data;
@@ -2984,6 +2988,7 @@ g_strv_length (gchar **str_array)
 
   g_return_val_if_fail (str_array != NULL, 0);
 
+  /*数组最后一个元素需要为NULL*/
   while (str_array[i])
     ++i;
 

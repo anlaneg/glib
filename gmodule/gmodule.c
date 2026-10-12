@@ -214,7 +214,7 @@ g_module_find_by_name (const gchar *name)
   for (module = modules; module; module = module->next)
     if (strcmp (name, module->file_name) == 0)
 	{
-	  retval = module;
+	  retval = module;/*通过名称查找模块成功，返回*/
 	  break;
 	}
 
@@ -518,6 +518,7 @@ g_module_open_full (const gchar   *file_name,
   module = g_module_find_by_name (file_name);
   if (module)
     {
+	  /*通过名称查找module*/
       module->ref_count++;
       
       g_rec_mutex_unlock (&g_module_global_lock);

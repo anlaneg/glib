@@ -146,8 +146,9 @@ void
 g_slist_free_full (GSList         *list,
 		   GDestroyNotify  free_func)
 {
+	/*通过free_func遍历所有元素*/
   g_slist_foreach (list, (GFunc) free_func, NULL);
-  g_slist_free (list);
+  g_slist_free (list);/*释放list*/
 }
 
 /**
@@ -377,6 +378,7 @@ _g_slist_remove_data (GSList        *list,
       tmp = *previous_ptr;
       if (tmp->data == data)
         {
+    	  /*命中，移除*/
           *previous_ptr = tmp->next;
           g_slist_free_1 (tmp);
           if (!all)
@@ -405,6 +407,7 @@ GSList*
 g_slist_remove (GSList        *list,
                 gconstpointer  data)
 {
+	/*自list中移除首个data,并返回链表头（链表头可能被更改）*/
   return _g_slist_remove_data (list, data, FALSE);
 }
 
@@ -427,6 +430,7 @@ g_slist_remove_all (GSList        *list,
   return _g_slist_remove_data (list, data, TRUE);
 }
 
+/*自list中移除link*/
 static inline GSList*
 _g_slist_remove_link (GSList *list,
                       GSList *link)
@@ -439,8 +443,8 @@ _g_slist_remove_link (GSList *list,
       tmp = *previous_ptr;
       if (tmp == link)
         {
-          *previous_ptr = tmp->next;
-          tmp->next = NULL;
+          *previous_ptr = tmp->next;/*前一个指到link后面（跳过link)*/
+          tmp->next = NULL;/*link自链中断开*/
           break;
         }
 
@@ -496,10 +500,11 @@ GSList*
 g_slist_delete_link (GSList *list,
                      GSList *link_)
 {
+	/*自list移除link_,并释放link_*/
   list = _g_slist_remove_link (list, link_);
   _g_slist_free1 (link_);
 
-  return list;
+  return list;/*返回移除后结果链*/
 }
 
 /**
@@ -835,6 +840,7 @@ g_slist_foreach (GSList   *list,
                  GFunc     func,
                  gpointer  user_data)
 {
+	/*利用func遍历list（支持list删除释放）*/
   while (list)
     {
       GSList *next = list->next;
@@ -858,14 +864,17 @@ g_slist_insert_sorted_real (GSList   *list,
 
   if (!list)
     {
+	  /*链表为空，直接加入*/
       new_list = _g_slist_alloc ();
       new_list->data = data;
       new_list->next = NULL;
       return new_list;
     }
 
+  /*先和首个元素比较*/
   cmp = ((GCompareDataFunc) func) (data, tmp_list->data, user_data);
 
+  /*cmp大于0，则向后放*/
   while ((tmp_list->next) && (cmp > 0))
     {
       prev_list = tmp_list;
@@ -874,11 +883,13 @@ g_slist_insert_sorted_real (GSList   *list,
       cmp = ((GCompareDataFunc) func) (data, tmp_list->data, user_data);
     }
 
+  /*cmp <=0,需放在prev_list与tmp_list之间，在此处申请节点*/
   new_list = _g_slist_alloc ();
   new_list->data = data;
 
   if ((!tmp_list->next) && (cmp > 0))
     {
+	  /*放在尾部的情况*/
       tmp_list->next = new_list;
       new_list->next = NULL;
       return list;
@@ -913,8 +924,9 @@ g_slist_insert_sorted_real (GSList   *list,
 GSList*
 g_slist_insert_sorted (GSList       *list,
                        gpointer      data,
-                       GCompareFunc  func)
+                       GCompareFunc  func/*比对函数*/)
 {
+	/*按排序插件*/
   return g_slist_insert_sorted_real (list, data, (GFunc) func, NULL);
 }
 

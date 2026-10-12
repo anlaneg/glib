@@ -234,7 +234,7 @@ struct _GSourceCallback
   gint ref_count;  /* (atomic) */
   GSourceFunc func;
   gpointer    data;
-  GDestroyNotify notify;
+  GDestroyNotify notify;/*销毁回调函数*/
 };
 
 struct _GMainLoop
@@ -1785,12 +1785,14 @@ g_source_callback_unref (gpointer cb_data)
 
   if (g_atomic_int_dec_and_test (&callback->ref_count))
     {
+	  /*引用减少为0，触发destroy notify*/
       if (callback->notify)
         callback->notify (callback->data);
       g_free (callback);
     }
 }
 
+/*自GSourceCallback中获取回调及回调参数*/
 static void
 g_source_callback_get (gpointer     cb_data,
 		       GSource     *source, 
@@ -1915,10 +1917,10 @@ g_source_set_callback (GSource        *source,
 
   new_callback = g_new (GSourceCallback, 1);
 
-  new_callback->ref_count = 1;
-  new_callback->func = func;
-  new_callback->data = data;
-  new_callback->notify = notify;
+  new_callback->ref_count = 1;/*此new_callback引用计数置为1*/
+  new_callback->func = func;/*回调*/
+  new_callback->data = data;/*函数参数*/
+  new_callback->notify = notify;/*销毁回调函数（引用计数置为0时调用）*/
 
   g_source_set_callback_indirect (source, new_callback, &g_source_callback_funcs);
 }

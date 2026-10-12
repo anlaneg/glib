@@ -454,10 +454,10 @@ g_file_test (const gchar *filename,
       if (stat (filename, &s) == 0)
 	{
 	  if ((test & G_FILE_TEST_IS_REGULAR) && S_ISREG (s.st_mode))
-	    return TRUE;
+	    return TRUE;/*普通文件且test指明regular,返回true*/
 	  
 	  if ((test & G_FILE_TEST_IS_DIR) && S_ISDIR (s.st_mode))
-	    return TRUE;
+	    return TRUE;/*目录且test指明目录，返回true*/
 
 	  /* The extra test for root when access (file, X_OK) succeeds.
 	   */
@@ -465,7 +465,7 @@ g_file_test (const gchar *filename,
 	      ((s.st_mode & S_IXOTH) ||
 	       (s.st_mode & S_IXUSR) ||
 	       (s.st_mode & S_IXGRP)))
-	    return TRUE;
+	    return TRUE;/*指明可执行，检查权限，返回true*/
 	}
     }
 
